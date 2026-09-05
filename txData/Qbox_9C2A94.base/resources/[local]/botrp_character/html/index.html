@@ -3,38 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
     <title>BotRP Character Manager</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <main id="app" class="app hidden" aria-hidden="true">
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
     <section class="panel" aria-label="Character selection">
         <header class="header">
-            <div>
+            <div class="brand-block">
                 <div class="eyebrow"><span class="dot"></span><span id="serverName">BOTRP</span></div>
                 <h1 id="title">Choose your character</h1>
                 <p id="subtitle">Continue your story or create someone new.</p>
             </div>
-            <div class="counter"><strong id="count">0</strong><span>CHARACTERS</span></div>
+            <div class="counter" aria-label="Character slots">
+                <strong id="count">0/0</strong>
+                <span>CHARACTER SLOTS</span>
+            </div>
         </header>
 
-        <section id="characters" class="characters"></section>
+        <div id="loading" class="loading hidden" aria-live="polite">
+            <span class="spinner"></span>
+            <span id="loadingText">Loading characters...</span>
+        </div>
+
+        <section id="characters" class="characters" aria-live="polite"></section>
 
         <section id="create" class="create hidden" aria-label="Create character">
-            <div class="section-title">Create character</div>
+            <div class="section-heading">
+                <div>
+                    <div class="section-kicker">NEW IDENTITY</div>
+                    <div class="section-title">Create character</div>
+                </div>
+                <div class="step">01 <span>/ 01</span></div>
+            </div>
+
             <div class="form-grid">
-                <label>First name<input id="firstname" maxlength="50" autocomplete="off" spellcheck="false"></label>
-                <label>Last name<input id="lastname" maxlength="50" autocomplete="off" spellcheck="false"></label>
-                <label>Nationality<input id="nationality" maxlength="50" value="American" autocomplete="off" spellcheck="false"></label>
+                <label>First name<input id="firstname" maxlength="50" autocomplete="off" spellcheck="false" placeholder="First name"></label>
+                <label>Last name<input id="lastname" maxlength="50" autocomplete="off" spellcheck="false" placeholder="Last name"></label>
+                <label>Nationality<input id="nationality" maxlength="50" value="American" autocomplete="off" spellcheck="false" placeholder="Nationality"></label>
                 <label>Birth date<input id="birthdate" type="date"></label>
                 <label>Gender<select id="gender"><option value="0">Male</option><option value="1">Female</option></select></label>
             </div>
             <div class="actions">
                 <button id="cancel" class="secondary" type="button">Back</button>
-                <button id="createBtn" class="primary" type="button">Create character</button>
+                <button id="createBtn" class="primary" type="button"><span>Create character</span><span class="button-arrow">→</span></button>
             </div>
         </section>
+
+        <footer class="footer">
+            <span><kbd>ESC</kbd> Back</span>
+            <span class="footer-status"><i></i> Secure character storage</span>
+        </footer>
     </section>
+
+    <div id="confirm" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+        <div class="modal-card">
+            <div class="modal-icon">!</div>
+            <div>
+                <div class="section-kicker">PERMANENT ACTION</div>
+                <h2 id="confirmTitle">Delete character?</h2>
+                <p id="confirmText">This character will be permanently removed.</p>
+            </div>
+            <div class="modal-actions">
+                <button id="confirmCancel" class="secondary" type="button">Cancel</button>
+                <button id="confirmDelete" class="danger" type="button">Delete character</button>
+            </div>
+        </div>
+    </div>
 </main>
 <script src="script.js"></script>
 </body>
