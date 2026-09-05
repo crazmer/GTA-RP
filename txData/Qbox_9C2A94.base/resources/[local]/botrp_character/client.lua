@@ -59,9 +59,6 @@ local function openUi()
     busy = false
 end
 
--- Qbox external-character mode disables qbx_core's own character.lua, so this
--- resource owns the handoff. qbx_spawn uses the legacy-compatible qb-spawn
--- event names even though the resource itself is named qbx_spawn.
 local function openSpawnForCharacter(characterData, isNewCharacter)
     closeUi()
     DisplayRadar(false)
@@ -75,14 +72,11 @@ local function openSpawnForCharacter(characterData, isNewCharacter)
     end
 
     if spawnStarted then
-        -- qbx_spawn registers these qb-spawn-compatible events. setupSpawns
-        -- prepares the locations and openUI actually displays its NUI.
         TriggerEvent('qb-spawn:client:setupSpawns', characterData, false, nil)
         TriggerEvent('qb-spawn:client:openUI', true)
         return
     end
 
-    -- Safe final fallback when no spawn resource is installed.
     local spawn = Config.DefaultSpawn or vec4(-540.58, -212.02, 37.65, 208.88)
     DoScreenFadeOut(250)
     while not IsScreenFadedOut() do Wait(0) end
@@ -188,8 +182,6 @@ RegisterNUICallback('createCharacter', function(data, cb)
     DoScreenFadeOut(250)
     while not IsScreenFadedOut() do Wait(0) end
 
-    -- qbx_core creates AND logs in the new player. Do not call loadCharacter
-    -- after this callback; that race was the source of the earlier black screen.
     local newData = lib.callback.await('qbx_core:server:createCharacter', false, {
         firstname = firstName,
         lastname = lastName,
@@ -206,15 +198,16 @@ RegisterNUICallback('createCharacter', function(data, cb)
         return
     end
 
-    -- Wait for the server-side login state to be replicated before asking the
-    -- spawn resource to build its UI. Do not fade in here: the spawn UI owns it.
+    -- qbx_core sets QBX.IsLoggedIn from QBCore:Client:OnPlayerLoaded.
+    -- LocalPlayer.state.isLoggedIn is not the Qbox login flag and can remain nil,
+    -- which previously caused a false timeout and left the screen black.
     local deadline = GetGameTimer() + 10000
-    while not LocalPlayer.state.isLoggedIn and GetGameTimer() < deadline do
+    while not QBX.IsLoggedIn and GetGameTimer() < deadline do
         Wait(100)
     end
 
-    if not LocalPlayer.state.isLoggedIn then
-        print('[botrp_character] qbx_core login state did not arrive after creation')
+    if not QBX.IsLoggedIn then
+        print('[botrp_character] QBX.IsLoggedIn did not arrive after creation')
         DoScreenFadeIn(500)
         busy = false
         openUi()
