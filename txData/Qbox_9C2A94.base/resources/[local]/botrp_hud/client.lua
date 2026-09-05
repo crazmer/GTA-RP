@@ -4,6 +4,8 @@ local voiceMode = 2
 local radioActive = false
 local playerDataCache = {}
 local lastPayload = nil
+local fps = 0
+local lastFpsUpdate = 0
 
 local function clamp(value, min, max)
     value = tonumber(value) or 0
@@ -19,33 +21,36 @@ local function getPlayerData()
         playerDataCache = QBX.PlayerData
         return QBX.PlayerData
     end
-
-    if type(playerDataCache) == 'table' and next(playerDataCache) ~= nil then
-        return playerDataCache
-    end
-
-    return {}
+    return playerDataCache
 end
 
 local function healthPercent(ped)
-    if not DoesEntityExist(ped) then return 0 end
-
+    if not DoesEntityExist(ped) or IsEntityDead(ped) then return 0 end
     local maxHealth = GetEntityMaxHealth(ped)
     local currentHealth = GetEntityHealth(ped)
     if maxHealth <= 100 then return 0 end
-
     return math.floor(clamp(((currentHealth - 100) / (maxHealth - 100)) * 100, 0, 100))
+end
+
+local function readNumber(tbl, keys)
+    if type(tbl) ~= 'table' then return nil end
+    for i = 1, #keys do
+        local value = tonumber(tbl[keys[i]])
+        if value ~= nil then return value end
+    end
+    return nil
 end
 
 local function getNeeds(data)
     local metadata = type(data) == 'table' and data.metadata or {}
-    local hunger = tonumber(metadata and metadata.hunger)
-    local thirst = tonumber(metadata and metadata.thirst)
+    local state = LocalPlayer and LocalPlayer.state or {}
+
+    local hunger = readNumber(metadata, {'hunger', 'food'}) or readNumber(state, {'hunger', 'food'})
+    local thirst = readNumber(metadata, {'thirst', 'water'}) or readNumber(state, {'thirst', 'water'})
 
     if hunger == nil and thirst == nil then return nil end
     if hunger == nil then return math.floor(clamp(thirst, 0, 100)) end
     if thirst == nil then return math.floor(clamp(hunger, 0, 100)) end
-
     return math.floor(math.min(clamp(hunger, 0, 100), clamp(thirst, 0, 100)))
 end
 
@@ -55,6 +60,22 @@ local function voiceLabel()
     return 'Normal'
 end
 
+local function isTalking()
+    if type(NetworkIsPlayerTalking) ~= 'function' then return false end
+    local ok, result = pcall(NetworkIsPlayerTalking, PlayerId())
+    return ok and result == true
+end
+
+local function updateFps()
+    local now = GetGameTimer()
+    if now - lastFpsUpdate < 1000 then return end
+    lastFpsUpdate = now
+    local frameTime = GetFrameTime()
+    if frameTime and frameTime > 0 then
+        fps = math.floor(1.0 / frameTime + 0.5)
+    end
+end
+
 local function buildPayload(data)
     local playerData = data or getPlayerData()
     local ped = PlayerPedId()
@@ -62,6 +83,8 @@ local function buildPayload(data)
     local job = type(playerData.job) == 'table' and playerData.job or {}
     local gradeData = type(job.grade) == 'table' and job.grade or {}
     local grade = gradeData.name or job.grade_label or gradeData.level or job.grade or 'Freelancer'
+
+    updateFps()
 
     return {
         action = 'update',
@@ -73,41 +96,32 @@ local function buildPayload(data)
         armor = math.floor(clamp(GetPedArmour(ped), 0, 100)),
         needs = getNeeds(playerData),
         voice = voiceLabel(),
-        speaking = NetworkIsPlayerTalking(PlayerId()),
+        speaking = isTalking(),
         radio = radioActive,
-        ping = GetPlayerPing(PlayerId()),
+        system = fps > 0 and (('%d FPS'):format(fps)) or 'Online',
+        loggedIn = type(playerData) == 'table' and playerData.citizenid ~= nil,
     }
 end
 
 local function payloadChanged(payload)
     if not lastPayload then return true end
-
     for key, value in pairs(payload) do
-        if key ~= 'action' and lastPayload[key] ~= value then
-            return true
-        end
+        if key ~= 'action' and lastPayload[key] ~= value then return true end
     end
-
     return false
 end
 
 local function sendHud(force)
-    -- Do not gate SendNUIMessage behind the ready callback. FiveM can deliver
-    -- messages while the NUI page is starting; the ready callback below then
-    -- sends a guaranteed fresh snapshot once the DOM is live.
     local payload = buildPayload()
     if force or payloadChanged(payload) then
         SendNUIMessage(payload)
         lastPayload = payload
     end
-
     visible = true
 end
 
 local function hideHud()
-    if nuiReady then
-        SendNUIMessage({ action = 'hide' })
-    end
+    SendNUIMessage({ action = 'hide' })
     visible = false
 end
 
@@ -118,24 +132,16 @@ RegisterNUICallback('ready', function(_, cb)
     cb({ ok = true })
 end)
 
-RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
+RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function(data)
+    if type(data) == 'table' then playerDataCache = data end
     CreateThread(function()
-        for _ = 1, 40 do
-            sendHud(true)
-            if type(QBX) == 'table' and type(QBX.PlayerData) == 'table' and next(QBX.PlayerData) ~= nil then
-                playerDataCache = QBX.PlayerData
-                sendHud(true)
-                return
-            end
-            Wait(250)
-        end
+        Wait(250)
+        sendHud(true)
     end)
 end)
 
 RegisterNetEvent('QBCore:Player:SetPlayerData', function(data)
-    if type(data) == 'table' then
-        playerDataCache = data
-    end
+    if type(data) == 'table' then playerDataCache = data end
     sendHud(true)
 end)
 
@@ -143,17 +149,6 @@ RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
     playerDataCache = {}
     lastPayload = nil
     hideHud()
-end)
-
-RegisterNetEvent('QBCore:Client:OnMoneyChange', function()
-    sendHud(true)
-end)
-
-RegisterNetEvent('QBCore:Client:OnJobUpdate', function(job)
-    if type(playerDataCache) == 'table' and type(job) == 'table' then
-        playerDataCache.job = job
-    end
-    sendHud(true)
 end)
 
 RegisterNetEvent('pma-voice:setTalkingMode', function(mode)
@@ -168,14 +163,11 @@ end)
 
 AddEventHandler('onClientResourceStart', function(resourceName)
     if resourceName ~= GetCurrentResourceName() then return end
-
     nuiReady = false
     lastPayload = nil
     visible = true
-
     CreateThread(function()
-        -- Startup safety net. The HTML also sends /ready, but these retries
-        -- make a resource restart recover even if that callback is delayed.
+        Wait(100)
         for _ = 1, 20 do
             sendHud(true)
             Wait(250)
@@ -186,15 +178,10 @@ end)
 CreateThread(function()
     while true do
         Wait(500)
-
         if IsPauseMenuActive() then
             if visible then hideHud() end
         else
-            if not visible then
-                sendHud(true)
-            else
-                sendHud(false)
-            end
+            if not visible then sendHud(true) else sendHud(false) end
         end
     end
 end)
