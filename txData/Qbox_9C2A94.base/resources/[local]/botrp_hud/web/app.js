@@ -5,17 +5,21 @@ const setText = (id, value) => {
     if (el) el.textContent = value ?? '';
 };
 
-// Never hide the NUI just because player data is late. This prevents a
-// valid HUD resource from appearing to be broken after a resource restart.
-hud.classList.remove('hidden');
-hud.classList.add('visible');
+function showHud() {
+    hud.classList.remove('hidden');
+    hud.classList.add('visible');
+}
+
+function hideHud() {
+    hud.classList.remove('visible');
+    hud.classList.add('hidden');
+}
 
 window.addEventListener('message', (event) => {
     const d = event.data || {};
 
     if (d.action === 'hide') {
-        hud.classList.remove('visible');
-        hud.classList.add('hidden');
+        hideHud();
         return;
     }
 
@@ -32,13 +36,22 @@ window.addEventListener('message', (event) => {
 
     hud.classList.toggle('speaking', d.speaking === true);
     hud.classList.toggle('radio', d.radio === true);
-    hud.classList.remove('hidden');
-    hud.classList.add('visible');
+    showHud();
 });
 
-// If the NUI is reloaded by FiveM, make the card visible without waiting for
-// a Lua message. Lua will immediately replace the placeholders with live data.
 window.addEventListener('DOMContentLoaded', () => {
-    hud.classList.remove('hidden');
-    hud.classList.add('visible');
+    // The page is intentionally transparent and the card is visible by
+    // default, so a NUI startup/message race can never turn the game screen
+    // into a black overlay.
+    showHud();
+
+    try {
+        fetch(`https://${GetParentResourceName()}/ready`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+            body: JSON.stringify({})
+        }).catch(() => {});
+    } catch (_) {
+        // Browser preview outside FiveM has no GetParentResourceName().
+    }
 });
