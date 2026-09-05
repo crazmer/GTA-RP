@@ -1,0 +1,1 @@
+BotRP logo is stored as the binary asset `logo.png` in this folder. This text file documents the asset for repository sharing.
