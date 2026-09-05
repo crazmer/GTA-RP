@@ -1,38 +1,25 @@
-local function notify(description, title)
+local function notify(text, notifyType)
     lib.notify({
-        title = title or Config.Name,
-        description = description,
-        type = 'inform',
-        duration = 4500
+        title = 'BotRP',
+        description = text,
+        type = notifyType or 'inform',
+        position = 'top-right'
     })
 end
 
-RegisterNetEvent('botrp_core:client:status', function(data)
-    notify(('Core %s is online.'):format(data.version), data.name)
+local function welcomePlayer()
+    local data = QBX.PlayerData
+    if not data or not data.charinfo then return end
+
+    local firstName = data.charinfo.firstname or 'Player'
+    notify(('Welcome, %s. Your city story starts now.'):format(firstName), 'success')
+end
+
+AddEventHandler('QBCore:Client:OnPlayerLoaded', function()
+    Wait(1000)
+    welcomePlayer()
 end)
 
-CreateThread(function()
-    Wait(Config.WelcomeDelay + 500)
-    notify('Welcome to BotRP. Your city, your character, your story.', 'Welcome')
-end)
-
-CreateThread(function()
-    while true do
-        Wait(Config.StatusInterval)
-        if NetworkIsSessionStarted() then
-            local ped = PlayerPedId()
-            if DoesEntityExist(ped) then
-                local health = GetEntityHealth(ped)
-                local maxHealth = GetEntityMaxHealth(ped)
-                if maxHealth > 0 and health > maxHealth then
-                    SetEntityHealth(ped, maxHealth)
-                end
-            end
-        end
-    end
-end)
-
-AddEventHandler('onClientResourceStop', function(resourceName)
-    if resourceName ~= GetCurrentResourceName() then return end
-    SetNuiFocus(false, false)
+AddEventHandler('qbx_core:client:playerLoggedOut', function()
+    SendNUIMessage({ action = 'hide' })
 end)
