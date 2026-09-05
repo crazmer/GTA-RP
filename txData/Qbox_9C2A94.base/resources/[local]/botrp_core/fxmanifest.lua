@@ -4,16 +4,8 @@ lua54 'yes'
 
 name 'botrp_core'
 author 'BotRP Development'
-description 'BotRP player experience foundation and HUD'
-version '0.3.0'
-
-ui_page 'web/index.html'
-
-files {
-    'web/index.html',
-    'web/style.css',
-    'web/app.js'
-}
+description 'BotRP player experience foundation'
+version '0.3.1'
 
 shared_scripts {
     '@ox_lib/init.lua',
@@ -23,8 +15,7 @@ shared_scripts {
 
 client_scripts {
     'client/main.lua',
-    'client/onboarding.lua',
-    'client/hud.lua'
+    'client/onboarding.lua'
 }
 
 server_scripts {
