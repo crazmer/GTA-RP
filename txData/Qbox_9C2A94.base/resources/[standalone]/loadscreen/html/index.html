@@ -1,149 +1,110 @@
 <!doctype html>
-<html>
-    <head>
-        <script src="./js/index.js" type="module"></script>
-        <link id="style" rel="stylesheet" />
-        <link href="./dev.css" rel="stylesheet" />
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#071019" />
+    <meta property="og:title" content="BotRP" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="BotRP — serious roleplay." />
 
-        <title>Loadscreen Preview</title>
-        <meta property="og:title" content="Loadscreen Preview" />
-        <meta property="og:type" content="website" />
-        <meta
-            property="og:description"
-            content="A preview of D4's loadscreen"
-        />
-        <meta name="theme-color" content="#4040FF" />
-    </head>
+    <script src="./js/index.js" type="module"></script>
+    <link id="style" rel="stylesheet" />
+    <link href="./dev.css" rel="stylesheet" />
 
-    <body>
-        <div id="error-wrapper" style="display: none">
-            <header>
-                <img src="./assets/icons/report.svg" draggable="false" />
-                <h3>Error log</h3>
-            </header>
-            <p>Please copy & report the errors below.</p>
-            <textarea
-                id="error-log"
-                class="hover"
-                rows="10"
-                cols="50"
-                readonly
-            ></textarea>
-        </div>
+    <title>BotRP</title>
+</head>
 
-        <video
-            id="background-video"
-            autoplay
-            playsinline
-            disablepictureinpicture
-        ></video>
-        <audio id="background-audio" autoplay></audio>
-        <iframe
-            id="background-embed"
-            frameborder="0"
-            style="pointer-events: none"
-        ></iframe>
+<body>
+    <div id="error-wrapper" style="display: none">
+        <header>
+            <img src="./assets/icons/report.svg" draggable="false" alt="" />
+            <h3>Error log</h3>
+        </header>
+        <p>Please copy &amp; report the errors below.</p>
+        <textarea id="error-log" class="hover" rows="10" cols="50" readonly></textarea>
+    </div>
 
-        <div id="overlay"></div>
+    <video id="background-video" autoplay playsinline disablepictureinpicture></video>
+    <audio id="background-audio" autoplay></audio>
+    <iframe id="background-embed" title="Background" frameborder="0" style="pointer-events: none"></iframe>
 
-        <div id="loadscreen-wrapper">
-            <header>
-                <img id="logo" draggable="false" style="display: none" />
-                <h1 id="server-message"></h1>
-            </header>
-            <footer>
-                <div id="secondary-bar-wrapper" style="display: none">
-                    <p id="loading-action"></p>
-                    <progress id="secondary-bar"></progress>
-                </div>
-                <progress id="primary-bar" max="1"></progress>
-            </footer>
-        </div>
-    </body>
+    <div id="overlay"></div>
+
+    <div id="loadscreen-wrapper">
+        <header>
+            <div class="brand-lockup">
+                <strong>BOTRP</strong>
+                <span>ENHANCED ROLEPLAY</span>
+            </div>
+
+            <p class="eyebrow">WELCOME TO THE CITY</p>
+
+            <img id="logo" draggable="false" style="display: none" alt="BotRP logo" />
+            <h1 id="server-message"></h1>
+        </header>
+
+        <footer>
+            <div class="load-meta" aria-hidden="true">
+                <span>CONNECTING</span>
+                <span class="load-meta-dot"></span>
+                <span>PREPARING YOUR EXPERIENCE</span>
+            </div>
+
+            <div id="secondary-bar-wrapper" style="display: none">
+                <p id="loading-action"></p>
+                <progress id="secondary-bar"></progress>
+            </div>
+
+            <progress id="primary-bar" max="1"></progress>
+        </footer>
+    </div>
 
     <div id="finishing-wrapper" style="opacity: 0">
+        <span class="finish-kicker">ALMOST THERE</span>
         <h1 id="finishing-message"></h1>
         <p id="log-line"></p>
     </div>
 
     <div id="audio-controls" class="hover" style="display: none">
-        <input
-            id="audio-volume"
-            class="hover"
-            min="0"
-            max="1"
-            step="0.01"
-            type="range"
-        />
-        <button id="audio-mute" class="hover">
-            <img
-                id="audio-mute-icon"
-                src="./assets/icons/volume_up.svg"
-                draggable="false"
-            />
+        <input id="audio-volume" class="hover" min="0" max="1" step="0.01" type="range" aria-label="Volume" />
+        <button id="audio-mute" class="hover" type="button" aria-label="Mute audio">
+            <img id="audio-mute-icon" src="./assets/icons/volume_up.svg" draggable="false" alt="" />
         </button>
     </div>
 
-    <button id="dev-open" class="hover" style="display: none">Dev Menu</button>
+    <button id="dev-open" class="hover" style="display: none" type="button">Dev Menu</button>
     <div id="dev-menu" class="hover" style="display: none">
         <header>
             <h2>Dev Menu</h2>
-            <button id="dev-close" class="hover">Close</button>
+            <button id="dev-close" class="hover" type="button">Close</button>
         </header>
 
-        <button id="dev-back" class="hover" style="display: none">Back</button>
+        <button id="dev-back" class="hover" style="display: none" type="button">Back</button>
 
         <main id="dev-options">
-            <div id="dev-variables">
-                <h3>Variables</h3>
-                <img src="./assets/icons/arrow_forward.svg" />
-            </div>
-
-            <div id="dev-config">
-                <h3>Config</h3>
-                <img src="./assets/icons/arrow_forward.svg" />
-            </div>
-
-            <div id="dev-events">
-                <h3>Events</h3>
-                <img src="./assets/icons/arrow_forward.svg" />
-            </div>
-
-            <div id="dev-custom-events">
-                <h3>Custom Events</h3>
-                <img src="./assets/icons/arrow_forward.svg" />
-            </div>
+            <div id="dev-variables"><h3>Variables</h3><img src="./assets/icons/arrow_forward.svg" alt="" /></div>
+            <div id="dev-config"><h3>Config</h3><img src="./assets/icons/arrow_forward.svg" alt="" /></div>
+            <div id="dev-events"><h3>Events</h3><img src="./assets/icons/arrow_forward.svg" alt="" /></div>
+            <div id="dev-custom-events"><h3>Custom Events</h3><img src="./assets/icons/arrow_forward.svg" alt="" /></div>
         </main>
 
         <div id="dev-cfg-wrapper">
             <h4>Generated Cfg</h4>
-            <textarea
-                id="dev-generated-cfg"
-                class="hover"
-                readonly
-                wrap="off"
-            ></textarea>
+            <textarea id="dev-generated-cfg" class="hover" readonly wrap="off"></textarea>
         </div>
     </div>
 
     <template id="dev-value-template">
-        <div class="dev-value">
-            <h4></h4>
-            <input class="hover" />
-        </div>
+        <div class="dev-value"><h4></h4><input class="hover" /></div>
     </template>
 
     <template id="dev-event-template">
-        <div class="dev-event">
-            <h4></h4>
-            <button id="dev-on-log-line" class="hover">Emit</button>
-        </div>
+        <div class="dev-event"><h4></h4><button id="dev-on-log-line" class="hover">Emit</button></div>
     </template>
 
     <template id="dev-event-param-template">
-        <div>
-            <h5></h5>
-            <input class="hover" />
-        </div>
+        <div><h5></h5><input class="hover" /></div>
     </template>
+</body>
 </html>
