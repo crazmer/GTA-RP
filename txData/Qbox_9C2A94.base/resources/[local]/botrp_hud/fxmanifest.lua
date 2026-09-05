@@ -5,11 +5,12 @@ lua54 'yes'
 name 'botrp_hud'
 author 'BotRP Development'
 description 'BotRP standalone player HUD'
-version '1.0.0'
+version '1.0.1'
 
-shared_script '@qbx_core/modules/playerdata.lua'
-
-client_script 'client.lua'
+client_scripts {
+    '@qbx_core/modules/playerdata.lua',
+    'client.lua'
+}
 
 ui_page 'web/index.html'
 
