@@ -4,8 +4,8 @@ lua54 'yes'
 
 name 'botrp_core'
 author 'BotRP Development'
-description 'BotRP player experience foundation'
-version '0.2.0'
+description 'BotRP player experience foundation and HUD'
+version '0.3.0'
 
 ui_page 'web/index.html'
 
