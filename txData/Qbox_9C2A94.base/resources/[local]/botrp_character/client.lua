@@ -59,41 +59,51 @@ local function openUi()
     busy = false
 end
 
--- qbx_spawn owns the final spawn transition. It deliberately has no arguments
--- in the installed Qbox version: it obtains the last location server-side and
--- builds its own spawn list. Passing character data here is unnecessary and
--- was part of the previous broken handoff.
 local function openQbxSpawn()
     closeUi()
     SetNuiFocus(false, false)
     DisplayRadar(false)
+    ShutdownLoadingScreen()
+    ShutdownLoadingScreenNui()
 
-    if GetResourceState('qbx_spawn') == 'started' then
-        CreateThread(function()
-            -- The create callback has already logged the player in. Give the
-            -- client one frame to receive PlayerData before qbx_spawn starts.
-            Wait(100)
-            TriggerEvent('qb-spawn:client:setupSpawns')
-        end)
-        return true
-    end
+    if GetResourceState('qbx_spawn') ~= 'started' then return false end
 
-    return false
+    -- qbx_spawn owns the spawn camera and waits for its own server callbacks.
+    -- Its installed event intentionally takes no arguments.
+    TriggerEvent('qb-spawn:client:setupSpawns')
+    return true
 end
 
 local function spawnFallback()
+    closeUi()
     DoScreenFadeOut(250)
     while not IsScreenFadedOut() do Wait(0) end
+    ShutdownLoadingScreen()
+    ShutdownLoadingScreenNui()
 
     local spawn = Config.DefaultSpawn or vec4(-540.58, -212.02, 37.65, 208.88)
     local ped = PlayerPedId()
+
     RequestCollisionAtCoord(spawn.x, spawn.y, spawn.z)
     SetEntityCoordsNoOffset(ped, spawn.x, spawn.y, spawn.z, false, false, false)
     SetEntityHeading(ped, spawn.w or 0.0)
     FreezeEntityPosition(ped, false)
     SetEntityVisible(ped, true, false)
+    SetEntityInvincible(ped, false)
     DisplayRadar(true)
+
+    -- qbx_core Login has already created the online player. This is the same
+    -- client loaded event used by Qbox's no-apartment spawn path.
+    TriggerEvent('QBCore:Client:OnPlayerLoaded')
     DoScreenFadeIn(750)
+end
+
+local function finishNewCharacter()
+    -- New-character spawning is deliberately deterministic. The custom
+    -- character manager must not depend on an apartment resource or a second
+    -- multicharacter/spawn implementation. Existing characters can still use
+    -- qbx_spawn below.
+    spawnFallback()
 end
 
 RegisterNUICallback('previewCharacter', function(data, cb)
@@ -139,6 +149,8 @@ RegisterNUICallback('selectCharacter', function(data, cb)
     busy = true
     DoScreenFadeOut(250)
     while not IsScreenFadedOut() do Wait(0) end
+    ShutdownLoadingScreen()
+    ShutdownLoadingScreenNui()
 
     local success = lib.callback.await('qbx_core:server:loadCharacter', false, citizenid)
     if not success then
@@ -149,7 +161,6 @@ RegisterNUICallback('selectCharacter', function(data, cb)
         return
     end
 
-    Wait(500)
     busy = false
     if not openQbxSpawn() then
         spawnFallback()
@@ -188,11 +199,11 @@ RegisterNUICallback('createCharacter', function(data, cb)
     busy = true
     DoScreenFadeOut(250)
     while not IsScreenFadedOut() do Wait(0) end
+    ShutdownLoadingScreen()
+    ShutdownLoadingScreenNui()
 
     -- qbx_core creates AND logs in the new character in this callback.
-    -- Do not load the character again and do not invoke the apartment system
-    -- here: external character managers must hand off to the installed spawn
-    -- resource after Login has completed.
+    -- Never call loadCharacter a second time.
     local newData = lib.callback.await('qbx_core:server:createCharacter', false, {
         firstname = firstName,
         lastname = lastName,
@@ -209,8 +220,6 @@ RegisterNUICallback('createCharacter', function(data, cb)
         return
     end
 
-    -- Login() fires QBCore:Client:OnPlayerLoaded, which sets QBX.IsLoggedIn.
-    -- Wait briefly for that client event rather than polling a state bag.
     local deadline = GetGameTimer() + 5000
     while not QBX.IsLoggedIn and GetGameTimer() < deadline do
         Wait(50)
@@ -225,13 +234,7 @@ RegisterNUICallback('createCharacter', function(data, cb)
     end
 
     busy = false
-
-    -- IMPORTANT: qbx_spawn's event has no arguments. It handles the new
-    -- character's spawn list itself. This avoids the old black-screen path
-    -- caused by mixing qbx_spawn with the apartment/old qb-spawn handoff.
-    if not openQbxSpawn() then
-        spawnFallback()
-    end
+    finishNewCharacter()
 end)
 
 RegisterNUICallback('deleteCharacter', function(data, cb)
