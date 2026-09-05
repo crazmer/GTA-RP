@@ -2,31 +2,9 @@ local function getPlayer(source)
     return exports.qbx_core:GetPlayer(source)
 end
 
-RegisterNetEvent('botrp_character:server:deleteCharacter', function(citizenid)
-    local source = source
-    if type(citizenid) ~= 'string' or citizenid == '' then return end
-
-    local player = getPlayer(source)
-    if player then
-        -- Never allow a player to delete the character that is currently loaded.
-        if player.PlayerData.citizenid == citizenid then
-            return
-        end
-    end
-
-    local ok = pcall(function()
-        exports.qbx_core:DeleteCharacter(citizenid)
-    end)
-
-    if not ok then
-        TriggerClientEvent('ox_lib:notify', source, {
-            title = 'BotRP',
-            description = 'Character could not be deleted.',
-            type = 'error'
-        })
-    end
-end)
-
+-- Character persistence remains entirely owned by qbx_core. This resource
+-- intentionally avoids direct database writes and only exposes read-only
+-- foundation data for future BotRP systems.
 lib.callback.register('botrp_character:server:getFoundationInfo', function(source)
     local player = getPlayer(source)
     if not player then return nil end
@@ -42,6 +20,5 @@ lib.callback.register('botrp_character:server:getFoundationInfo', function(sourc
 end)
 
 AddEventHandler('playerDropped', function()
-    -- Qbox remains the source of truth for persistence. This resource intentionally
-    -- does not write directly to the players table.
+    -- Qbox handles persistence and logout state.
 end)
