@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "general": {
+    "serverName": "BotRP"
+  },
+  "server": {
+    "dataPath": "H:/GTA RP/txData/Qbox_9C2A94.base/"
+  }
+}

@@ -1,0 +1,156 @@
+[05-09-2026 20:15:23] [    info] [                ] Scanning resources
+[05-09-2026 20:15:23] [    info] [                ] Found 93 resources
+[05-09-2026 20:15:23] [ warning] [                ] Resource 'pillbox' uses the deprecated 'stream/' folder. Please rename it to 'stream_enhanced/' for future compatibility.
+[05-09-2026 20:15:23] [ warning] [                ] Resource 'bob74_ipl' uses the deprecated 'stream/' folder. Please rename it to 'stream_enhanced/' for future compatibility.
+[05-09-2026 20:15:23] [ warning] [                ] Resource 'qbx_hud' uses the deprecated 'stream/' folder. Please rename it to 'stream_enhanced/' for future compatibility.
+[05-09-2026 20:15:23] [ warning] [                ] Resource 'qbx_density' uses the deprecated 'stream/' folder. Please rename it to 'stream_enhanced/' for future compatibility.
+[05-09-2026 20:15:23] [ warning] [                ] Resource 'qbx_customs' uses the deprecated 'stream/' folder. Please rename it to 'stream_enhanced/' for future compatibility.
+[05-09-2026 20:15:23] [ warning] [                ] Resource 'qbx_properties' uses the deprecated 'stream/' folder. Please rename it to 'stream_enhanced/' for future compatibility.
+[05-09-2026 20:15:23] [ warning] [                ] Resource 'ultra-voltlab' uses the deprecated 'stream/' folder. Please rename it to 'stream_enhanced/' for future compatibility.
+[05-09-2026 20:15:23] [ warning] [                ] Resource 'scully_emotemenu' uses the deprecated 'stream/' folder. Please rename it to 'stream_enhanced/' for future compatibility.
+[05-09-2026 20:15:23] [   error] [                ] sv_enforceGameBuild is used with an invalid value 3258. Only 1 is supported to remove any game dlcs.
+[05-09-2026 20:15:24] [    info] [         txadmin] ^5[txAdmin]^0 Resource v9.0.0-beta-646aba9a threads and commands set up. All Ready.^0
+[05-09-2026 20:15:24] [    info] [                ] Starting resource mapmanager
+[05-09-2026 20:15:24] [    info] [                ] Started resource mapmanager
+[05-09-2026 20:15:24] [    info] [                ] Starting resource spawnmanager
+[05-09-2026 20:15:24] [    info] [                ] Started resource spawnmanager
+[05-09-2026 20:15:24] [   error] [                ] Failed to ensure resource sessionmanager. Error: Resource "sessionmanager" not found
+[05-09-2026 20:15:24] [    info] [                ] Stopped resource basic-gamemode
+[05-09-2026 20:15:24] [   error] [                ] Failed to ensure resource hardcap. Error: Resource "hardcap" not found
+[05-09-2026 20:15:24] [    info] [                ] Starting resource baseevents
+[05-09-2026 20:15:24] [    info] [                ] Started resource baseevents
+[05-09-2026 20:15:24] [    info] [                ] Starting resource ox_lib
+[05-09-2026 20:15:24] [    info] [                ] Started resource ox_lib
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_core
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_core
+[05-09-2026 20:15:24] [    info] [                ] Starting resource ox_target
+[05-09-2026 20:15:24] [    info] [                ] Started resource ox_target
+[05-09-2026 20:15:24] [    info] [                ] Starting resource ox_doorlock
+[05-09-2026 20:15:24] [    info] [                ] Started resource ox_doorlock
+[05-09-2026 20:15:24] [    info] [                ] Starting resource ox_fuel
+[05-09-2026 20:15:24] [    info] [                ] Started resource ox_fuel
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_adminmenu
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_adminmenu
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_ambulancejob
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_ambulancejob
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_bankrobbery
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_bankrobbery
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_binoculars
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_binoculars
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_busjob
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_busjob
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_carwash
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_carwash
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_chat_theme
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_chat_theme
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_cityhall
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_cityhall
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_customs
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_customs
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_density
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_density
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_divegear
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_divegear
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_diving
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_diving
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_drugs
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_drugs
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_fireworks
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_fireworks
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_garages
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_garages
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_garbagejob
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_garbagejob
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_houserobbery
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_houserobbery
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_hud
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_hud
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_idcard
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_idcard
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_jewelery
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_jewelery
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_lapraces
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_lapraces
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_management
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_management
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_mechanicjob
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_mechanicjob
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_newsjob
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_newsjob
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_pawnshop
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_pawnshop
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_police
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_police
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_properties
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_properties
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_radialmenu
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_radialmenu
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_recyclejob
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_recyclejob
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_scoreboard
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_scoreboard
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_scrapyard
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_scrapyard
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_seatbelt
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_seatbelt
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_smallresources
+[05-09-2026 20:15:24] [    info] [qbx_smallresources] ^5[qbx_smallresources] ^3[WARN] [qbx_entitiesblacklist] You have entity blacklist enabled, this means that any entity that is blacklisted in config.lua will not be able to spawn, you can change this in qbx_smallresource/qbx_entitiesblacklist/config.lua^7
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_smallresources
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_spawn
+[05-09-2026 20:15:24] [    info] [                ] Started resource qbx_spawn
+[05-09-2026 20:15:24] [    info] [                ] Starting resource qbx_storerobbery
+[05-09-2026 20:15:25] [    info] [                ] Started resource qbx_storerobbery
+[05-09-2026 20:15:25] [    info] [                ] Starting resource qbx_streetraces
+[05-09-2026 20:15:25] [    info] [                ] Started resource qbx_streetraces
+[05-09-2026 20:15:25] [    info] [                ] Starting resource qbx_taxijob
+[05-09-2026 20:15:25] [    info] [                ] Started resource qbx_taxijob
+[05-09-2026 20:15:25] [    info] [                ] Starting resource qbx_towjob
+[05-09-2026 20:15:25] [    info] [                ] Started resource qbx_towjob
+[05-09-2026 20:15:25] [    info] [                ] Starting resource qbx_truckerjob
+[05-09-2026 20:15:25] [    info] [                ] Started resource qbx_truckerjob
+[05-09-2026 20:15:25] [    info] [                ] Starting resource qbx_truckrobbery
+[05-09-2026 20:15:25] [    info] [                ] Started resource qbx_truckrobbery
+[05-09-2026 20:15:25] [    info] [                ] Starting resource qbx_vehiclekeys
+[05-09-2026 20:15:25] [    info] [                ] Started resource qbx_vehiclekeys
+[05-09-2026 20:15:25] [    info] [                ] Starting resource qbx_vehicles
+[05-09-2026 20:15:25] [    info] [                ] Started resource qbx_vehicles
+[05-09-2026 20:15:25] [    info] [                ] Starting resource qbx_vehiclesales
+[05-09-2026 20:15:25] [    info] [                ] Started resource qbx_vehiclesales
+[05-09-2026 20:15:25] [    info] [                ] Starting resource qbx_vehicleshop
+[05-09-2026 20:15:25] [    info] [                ] Started resource qbx_vehicleshop
+[05-09-2026 20:15:25] [    info] [                ] Starting resource qbx_vineyard
+[05-09-2026 20:15:25] [    info] [                ] Started resource qbx_vineyard
+[05-09-2026 20:15:25] [    info] [                ] Starting resource qbx_weed
+[05-09-2026 20:15:25] [    info] [                ] Started resource qbx_weed
+[05-09-2026 20:15:25] [    info] [                ] Starting resource bob74_ipl
+[05-09-2026 20:15:25] [   error] [                ] Failed to start resource bob74_ipl. Error: Failed to generate cache for set: resource.rpf
+[05-09-2026 20:15:25] [    info] [                ] Starting resource illenium-appearance
+[05-09-2026 20:15:25] [    info] [                ] Started resource illenium-appearance
+[05-09-2026 20:15:25] [    info] [                ] Starting resource loadscreen
+[05-09-2026 20:15:25] [    info] [                ] Started resource loadscreen
+[05-09-2026 20:15:25] [    info] [                ] Starting resource mana_audio
+[05-09-2026 20:15:25] [    info] [                ] Started resource mana_audio
+[05-09-2026 20:15:25] [    info] [                ] Starting resource mhacking
+[05-09-2026 20:15:25] [    info] [                ] Started resource mhacking
+[05-09-2026 20:15:25] [    info] [                ] Starting resource Renewed-Banking
+[05-09-2026 20:15:25] [    info] [                ] Started resource Renewed-Banking
+[05-09-2026 20:15:25] [    info] [                ] Starting resource Renewed-Weathersync
+[05-09-2026 20:15:25] [    info] [                ] Started resource Renewed-Weathersync
+[05-09-2026 20:15:25] [    info] [                ] Starting resource safecracker
+[05-09-2026 20:15:25] [    info] [                ] Started resource safecracker
+[05-09-2026 20:15:25] [    info] [                ] Starting resource screencapture
+[05-09-2026 20:15:25] [    info] [                ] Started resource screencapture
+[05-09-2026 20:15:25] [    info] [                ] Starting resource scully_emotemenu
+[05-09-2026 20:15:25] [    info] [                ] Started resource scully_emotemenu
+[05-09-2026 20:15:25] [    info] [                ] Starting resource ultra-voltlab
+[05-09-2026 20:15:25] [    info] [                ] Started resource ultra-voltlab
+[05-09-2026 20:15:25] [    info] [                ] Starting resource vehiclehandler
+[05-09-2026 20:15:25] [    info] [                ] Started resource vehiclehandler
+[05-09-2026 20:15:25] [    info] [                ] Starting resource xt-prison
+[05-09-2026 20:15:25] [   error] [                ] Command jail is already registered.
+[05-09-2026 20:15:25] [   error] [                ] Command unjail is already registered.
+[05-09-2026 20:15:25] [    info] [                ] Started resource xt-prison
+[05-09-2026 20:15:25] [    info] [                ] Starting resource mm_radio
+[05-09-2026 20:15:25] [    info] [                ] Started resource mm_radio
+[05-09-2026 20:15:25] [    info] [                ] Starting resource pillbox
+[05-09-2026 20:15:25] [ warning] [                ] svSync thread warning: timer interval of 202ms milliseconds

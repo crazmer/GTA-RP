@@ -1,0 +1,13 @@
+================================================================
+======== txAdmin v9.0.0-beta-646aba9a atop fxserver 139 Starting - 5/9/2026, 8:12:58 pm
+================================================================
+[20:13:20][NotAGirl] created admins file
+[20:13:35][NotAGirl] Config changes: general.serverName
+[20:13:35][NotAGirl] Changing global settings via setup stepper and started Deployer.
+[20:13:36][NotAGirl] Setting recipe.
+[20:13:47][NotAGirl] Running recipe.
+[20:15:14][NotAGirl] Config changes: server.dataPath
+[20:15:14][NotAGirl] Completed and committed server deploy.
+[20:15:21][MONITOR] Restarting server: Server process close detected.
+[20:15:24][NotAGirl] executed "STOP SERVER"
+[20:15:26][MONITOR] Restarting server: Server process close detected.
