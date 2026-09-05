@@ -1,22 +1,33 @@
 const hud = document.getElementById('hud');
 const $ = (id) => document.getElementById(id);
+
 const setText = (id, value) => {
     const el = $(id);
-    if (el) el.textContent = value ?? '';
+    if (el) el.textContent = value == null ? '' : String(value);
+};
+
+const setStatusState = (id, state) => {
+    const el = $(id);
+    if (!el) return;
+    el.classList.toggle('speaking', state === 'speaking');
+    el.classList.toggle('radio', state === 'radio');
 };
 
 function showHud() {
+    if (!hud) return;
     hud.classList.remove('hidden');
     hud.classList.add('visible');
 }
 
 function hideHud() {
+    if (!hud) return;
     hud.classList.remove('visible');
     hud.classList.add('hidden');
 }
 
 window.addEventListener('message', (event) => {
     const d = event.data || {};
+    if (!hud) return;
 
     if (d.action === 'hide') {
         hideHud();
@@ -32,26 +43,29 @@ window.addEventListener('message', (event) => {
     setText('armor', `${d.armor ?? 0}%`);
     setText('needs', d.needs == null ? '--%' : `${d.needs}%`);
     setText('voice', d.radio ? 'Radio' : (d.voice || 'Normal'));
-    setText('ping', d.ping == null ? '-- ms' : `${d.ping} ms`);
+    setText('system', d.system || 'Online');
 
-    hud.classList.toggle('speaking', d.speaking === true);
-    hud.classList.toggle('radio', d.radio === true);
+    setStatusState('voiceStatus', d.radio ? 'radio' : (d.speaking ? 'speaking' : 'normal'));
+
+    // If Qbox data is not loaded yet, keep the card visible but show safe
+    // placeholders. Once Player:SetPlayerData arrives, values are replaced.
+    hud.classList.toggle('loading', d.loggedIn !== true);
     showHud();
 });
 
 window.addEventListener('DOMContentLoaded', () => {
-    // The page is intentionally transparent and the card is visible by
-    // default, so a NUI startup/message race can never turn the game screen
-    // into a black overlay.
     showHud();
 
+    // FiveM's NUI callback is only used as a synchronization signal. Failure
+    // here must never hide the HUD or affect the game UI.
     try {
-        fetch(`https://${GetParentResourceName()}/ready`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json; charset=UTF-8' },
-            body: JSON.stringify({})
-        }).catch(() => {});
-    } catch (_) {
-        // Browser preview outside FiveM has no GetParentResourceName().
-    }
+        const resource = GetParentResourceName();
+        if (resource) {
+            fetch(`https://${resource}/ready`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+                body: JSON.stringify({})
+            }).catch(() => {});
+        }
+    } catch (_) {}
 });
