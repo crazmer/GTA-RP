@@ -1,9 +1,10 @@
 Config = {
     ServerName = 'BotRP',
-    Version = '0.2.0',
+    Version = '0.3.0',
 
     MaxVisibleCharacters = 6,
     DeleteCharacters = true,
+    PreviewModelTimeout = 5000,
 
     -- Reuse Qbox's existing spawn resources. No second spawn implementation is created here.
     PreferApartments = true,
