@@ -14,19 +14,28 @@ end
 
 local function healthPercent(ped)
     if not DoesEntityExist(ped) then return 0 end
-    local max = GetEntityMaxHealth(ped)
-    local current = GetEntityHealth(ped)
-    if max <= 100 then return 0 end
-    return math.floor(clamp(((current - 100) / (max - 100)) * 100, 0, 100))
+
+    local maxHealth = GetEntityMaxHealth(ped)
+    local currentHealth = GetEntityHealth(ped)
+    if maxHealth <= 100 then return 0 end
+
+    return math.floor(clamp(((currentHealth - 100) / (maxHealth - 100)) * 100, 0, 100))
 end
 
 local function getPlayerData()
-    -- QBX globals are resource-local. Use the public qbx_core export so this
-    -- resource remains isolated and can be shared/installed independently.
+    -- qbx_core exposes the authoritative client PlayerData through QBX.PlayerData.
+    -- The playerdata module is loaded by this resource's fxmanifest, so this is
+    -- safe and avoids depending on a load event having fired after a HUD restart.
+    if type(QBX) == 'table' and type(QBX.PlayerData) == 'table' and next(QBX.PlayerData) ~= nil then
+        playerDataCache = QBX.PlayerData
+        return QBX.PlayerData
+    end
+
     if GetResourceState('qbx_core') == 'started' then
         local ok, data = pcall(function()
             return exports.qbx_core:GetPlayerData()
         end)
+
         if ok and type(data) == 'table' and next(data) ~= nil then
             playerDataCache = data
             return data
@@ -44,10 +53,8 @@ local function getNeeds(data)
     local metadata = data and data.metadata or {}
     local state = LocalPlayer and LocalPlayer.state
 
-    -- Qbox publishes hunger/thirst through player statebags. Prefer those,
-    -- then fall back to PlayerData metadata for compatibility.
-    local hunger = state and tonumber(state.hunger) or tonumber(metadata.hunger)
-    local thirst = state and tonumber(state.thirst) or tonumber(metadata.thirst)
+    local hunger = state and tonumber(state.hunger) or nil
+    local thirst = state and tonumber(state.thirst) or nil
 
     if hunger == nil then hunger = tonumber(metadata.hunger) end
     if thirst == nil then thirst = tonumber(metadata.thirst) end
@@ -56,6 +63,7 @@ local function getNeeds(data)
     if hunger == nil then return math.floor(clamp(thirst, 0, 100)) end
     if thirst == nil then return math.floor(clamp(hunger, 0, 100)) end
 
+    -- The HUD has one needs slot, so show the lower of hunger/thirst.
     return math.floor(math.min(clamp(hunger, 0, 100), clamp(thirst, 0, 100)))
 end
 
@@ -70,11 +78,12 @@ local function sendHud(data)
     if type(playerData) ~= 'table' or next(playerData) == nil then return false end
 
     playerDataCache = playerData
+    loggedIn = true
 
     local moneyData = playerData.money or {}
     local job = playerData.job or {}
     local gradeData = type(job.grade) == 'table' and job.grade or {}
-    local grade = gradeData.name or gradeData.level or job.grade_label or 'Freelancer'
+    local grade = gradeData.name or job.grade_label or gradeData.level or job.grade or 'Freelancer'
     local ped = PlayerPedId()
     local muted = false
 
@@ -85,7 +94,7 @@ local function sendHud(data)
 
     SendNUIMessage({
         action = 'update',
-        ready = playerData.charinfo ~= nil,
+        ready = true,
         cash = money(moneyData.cash),
         bank = money(moneyData.bank),
         job = job.label or job.name or 'Civilian',
@@ -104,7 +113,12 @@ local function sendHud(data)
 end
 
 local function refreshHud()
-    if not loggedIn then return false end
+    local coreLoggedIn = type(QBX) == 'table' and QBX.IsLoggedIn == true
+    if not loggedIn and not coreLoggedIn then
+        local data = getPlayerData()
+        if not data then return false end
+    end
+
     return sendHud()
 end
 
@@ -113,40 +127,31 @@ local function hideHud()
     visible = false
 end
 
+-- Qbox uses this event for the authoritative PlayerData update.
 RegisterNetEvent('QBCore:Player:SetPlayerData', function(data)
     if type(data) == 'table' then
         playerDataCache = data
     end
+
     loggedIn = true
     sendHud(data)
 end)
 
-RegisterNetEvent('qbx_core:client:onPlayerDataChanged', function(data)
-    if type(data) == 'table' then
-        playerDataCache = data
-    end
-    loggedIn = true
-    refreshHud()
-end)
-
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     loggedIn = true
+
     CreateThread(function()
-        for _ = 1, 20 do
+        for _ = 1, 40 do
             if sendHud() then return end
-            Wait(500)
+            Wait(250)
         end
     end)
 end)
 
-RegisterNetEvent('qbx_core:client:playerLoaded', function()
-    loggedIn = true
-    CreateThread(function()
-        for _ = 1, 20 do
-            if sendHud() then return end
-            Wait(500)
-        end
-    end)
+RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
+    loggedIn = false
+    playerDataCache = {}
+    hideHud()
 end)
 
 RegisterNetEvent('QBCore:Client:OnMoneyChange', function()
@@ -154,9 +159,12 @@ RegisterNetEvent('QBCore:Client:OnMoneyChange', function()
 end)
 
 RegisterNetEvent('QBCore:Client:OnJobUpdate', function(job)
-    if type(job) == 'table' then
-        playerDataCache.job = job
+    local data = getPlayerData() or playerDataCache
+    if type(data) == 'table' and type(job) == 'table' then
+        data.job = job
+        playerDataCache = data
     end
+
     refreshHud()
 end)
 
@@ -176,38 +184,38 @@ end)
 
 AddStateBagChangeHandler('isLoggedIn', ('player:%s'):format(GetPlayerServerId(PlayerId())), function(_, _, value)
     loggedIn = value == true
-    if loggedIn then refreshHud() else hideHud() end
-end)
 
-AddEventHandler('QBCore:Client:OnPlayerUnload', function()
-    loggedIn = false
-    playerDataCache = {}
-    hideHud()
-end)
-
-AddEventHandler('qbx_core:client:playerLoggedOut', function()
-    loggedIn = false
-    playerDataCache = {}
-    hideHud()
+    if loggedIn then
+        CreateThread(function()
+            for _ = 1, 20 do
+                if sendHud() then return end
+                Wait(250)
+            end
+        end)
+    else
+        hideHud()
+    end
 end)
 
 AddEventHandler('onClientResourceStart', function(resourceName)
     if resourceName ~= GetCurrentResourceName() then return end
 
     CreateThread(function()
-        local timeout = GetGameTimer() + 20000
-        while GetResourceState('qbx_core') ~= 'started' and GetGameTimer() < timeout do
-            Wait(250)
-        end
+        -- Do not wait for a network event. A HUD resource can be restarted
+        -- while the player is already loaded, so read the current Qbox state.
+        local timeout = GetGameTimer() + 30000
 
         while GetGameTimer() < timeout do
             local data = getPlayerData()
-            if data and (data.charinfo or data.money or data.job or data.metadata) then
+            local coreReady = type(QBX) == 'table' and QBX.IsLoggedIn == true
+
+            if data and (coreReady or data.citizenid or data.money or data.job or data.metadata) then
                 loggedIn = true
                 sendHud(data)
                 return
             end
-            Wait(500)
+
+            Wait(250)
         end
     end)
 end)
@@ -218,9 +226,8 @@ CreateThread(function()
 
         if IsPauseMenuActive() then
             if visible then hideHud() end
-        elseif loggedIn then
-            -- Only local/state data is refreshed here; there are no server or
-            -- database polls. This keeps health, needs, voice and ping current.
+        elseif loggedIn or (type(QBX) == 'table' and QBX.IsLoggedIn == true) then
+            -- Only local/state data is refreshed here. No server/database polling.
             refreshHud()
         end
     end
