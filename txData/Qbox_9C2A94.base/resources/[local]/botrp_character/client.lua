@@ -59,38 +59,37 @@ local function openUi()
     busy = false
 end
 
--- The external character manager means qbx_core's built-in character.lua is
--- disabled. Therefore we must own the post-login spawn handoff as well.
--- qbx_core's spawnNoApartments event is NOT registered while
--- useExternalCharacters=true, so never depend on that event here.
-local function spawnAfterCharacter(characterData, isNewCharacter)
+-- Qbox external-character mode disables qbx_core's own character.lua, so this
+-- resource owns the handoff. qbx_spawn uses the legacy-compatible qb-spawn
+-- event names even though the resource itself is named qbx_spawn.
+local function openSpawnForCharacter(characterData, isNewCharacter)
     closeUi()
     DisplayRadar(false)
 
-    if Config.PreferApartments and GetResourceState('qbx_apartments') == 'started' then
-        -- qbx_apartments expects the complete data returned by
-        -- qbx_core:server:createCharacter for a newly created character.
-        local apartmentData = isNewCharacter and characterData or (type(characterData) == 'table' and characterData.citizenid or characterData)
-        TriggerEvent('apartments:client:setupSpawnUI', apartmentData)
+    local apartmentsStarted = GetResourceState('qbx_apartments') == 'started'
+    local spawnStarted = GetResourceState('qbx_spawn') == 'started'
+
+    if isNewCharacter and Config.PreferApartments and apartmentsStarted then
+        TriggerEvent('apartments:client:setupSpawnUI', characterData)
         return
     end
 
-    if Config.PreferQbxSpawn and GetResourceState('qbx_spawn') == 'started' then
-        -- qbx_spawn's setupSpawns event owns the complete spawn selection UI.
-        -- It reads the logged-in player's last location itself, so it does not
-        -- need a citizenid or a separate openUI event.
-        TriggerEvent('qb-spawn:client:setupSpawns')
+    if spawnStarted then
+        -- qbx_spawn registers these qb-spawn-compatible events. setupSpawns
+        -- prepares the locations and openUI actually displays its NUI.
+        TriggerEvent('qb-spawn:client:setupSpawns', characterData, false, nil)
+        TriggerEvent('qb-spawn:client:openUI', true)
         return
     end
 
-    -- With external characters enabled, qbx_core does not register its normal
-    -- spawnNoApartments event. Keep a small local fallback instead.
+    -- Safe final fallback when no spawn resource is installed.
     local spawn = Config.DefaultSpawn or vec4(-540.58, -212.02, 37.65, 208.88)
-    local ped = PlayerPedId()
-
-    DoScreenFadeOut(500)
+    DoScreenFadeOut(250)
     while not IsScreenFadedOut() do Wait(0) end
-    SetEntityCoords(ped, spawn.x, spawn.y, spawn.z, false, false, false, false)
+
+    local ped = PlayerPedId()
+    RequestCollisionAtCoord(spawn.x, spawn.y, spawn.z)
+    SetEntityCoordsNoOffset(ped, spawn.x, spawn.y, spawn.z, false, false, false)
     SetEntityHeading(ped, spawn.w or 0.0)
     FreezeEntityPosition(ped, false)
     SetEntityVisible(ped, true, false)
@@ -151,9 +150,9 @@ RegisterNUICallback('selectCharacter', function(data, cb)
         return
     end
 
-    Wait(250)
+    Wait(500)
     busy = false
-    spawnAfterCharacter(citizenid, false)
+    openSpawnForCharacter({ citizenid = citizenid }, false)
 end)
 
 RegisterNUICallback('createCharacter', function(data, cb)
@@ -189,8 +188,8 @@ RegisterNUICallback('createCharacter', function(data, cb)
     DoScreenFadeOut(250)
     while not IsScreenFadedOut() do Wait(0) end
 
-    -- qbx_core:createCharacter creates AND logs in the new player. It returns
-    -- the newData table and must not be followed by loadCharacter.
+    -- qbx_core creates AND logs in the new player. Do not call loadCharacter
+    -- after this callback; that race was the source of the earlier black screen.
     local newData = lib.callback.await('qbx_core:server:createCharacter', false, {
         firstname = firstName,
         lastname = lastName,
@@ -207,8 +206,23 @@ RegisterNUICallback('createCharacter', function(data, cb)
         return
     end
 
+    -- Wait for the server-side login state to be replicated before asking the
+    -- spawn resource to build its UI. Do not fade in here: the spawn UI owns it.
+    local deadline = GetGameTimer() + 10000
+    while not LocalPlayer.state.isLoggedIn and GetGameTimer() < deadline do
+        Wait(100)
+    end
+
+    if not LocalPlayer.state.isLoggedIn then
+        print('[botrp_character] qbx_core login state did not arrive after creation')
+        DoScreenFadeIn(500)
+        busy = false
+        openUi()
+        return
+    end
+
     busy = false
-    spawnAfterCharacter(newData, true)
+    openSpawnForCharacter(newData, true)
 end)
 
 RegisterNUICallback('deleteCharacter', function(data, cb)
