@@ -4,15 +4,10 @@ local sessionReady = false
 local previewing = false
 
 local function notify(message, type)
-    lib.notify({
-        title = Config.ServerName,
-        description = message,
-        type = type or 'inform'
-    })
+    lib.notify({ title = Config.ServerName, description = message, type = type or 'inform' })
 end
 
 local function closeUi()
-    if not uiOpen then return end
     uiOpen = false
     previewing = false
     SetNuiFocus(false, false)
@@ -23,22 +18,14 @@ local function sendCharacters()
     local characters, amount = lib.callback.await('qbx_core:server:getCharacters', false)
     characters = type(characters) == 'table' and characters or {}
     amount = math.max(1, math.min(tonumber(amount) or Config.MaxVisibleCharacters, Config.MaxVisibleCharacters))
-
-    SendNUIMessage({
-        action = 'setCharacters',
-        characters = characters,
-        maxCharacters = amount,
-        serverName = Config.ServerName,
-    })
+    SendNUIMessage({ action = 'setCharacters', characters = characters, maxCharacters = amount, serverName = Config.ServerName })
 end
 
 local function openUi()
     if uiOpen or busy or not sessionReady then return end
-
     busy = true
     DoScreenFadeOut(250)
     while not IsScreenFadedOut() do Wait(0) end
-
     DisplayRadar(false)
     pcall(function() exports.spawnmanager:setAutoSpawn(false) end)
     ShutdownLoadingScreen()
@@ -59,48 +46,44 @@ local function openUi()
     busy = false
 end
 
-local function openQbxSpawn(citizenid)
+-- qbx_core's character.lua exits immediately when useExternalCharacters=true,
+-- therefore its spawnNoApartments event does NOT exist. The external character
+-- resource must hand the logged-in player to qbx_spawn itself.
+local function openSpawnSelector()
     closeUi()
     SetNuiFocus(false, false)
-    DisplayRadar(false)
     ShutdownLoadingScreen()
     ShutdownLoadingScreenNui()
-
-    if GetResourceState('qbx_spawn') ~= 'started' then return false end
-
-    TriggerEvent('qb-spawn:client:setupSpawns', citizenid)
-    TriggerEvent('qb-spawn:client:openUI', true)
-    return true
-end
-
-local function finishNewCharacter()
-    closeUi()
-    SetNuiFocus(false, false)
     DisplayRadar(false)
-    ShutdownLoadingScreen()
-    ShutdownLoadingScreenNui()
 
-    -- Qbox owns this exact path. Its spawnNoApartments handler performs the
-    -- fade, default placement, visibility, and final OnPlayerLoaded events.
-    -- Do not duplicate that work here: doing so can race the login state and
-    -- leave the client on a black screen.
-    TriggerEvent('qbx_core:client:spawnNoApartments')
+    if GetResourceState('qbx_spawn') == 'started' then
+        TriggerEvent('qb-spawn:client:setupSpawns')
+        return true
+    end
+
+    -- Last-resort safe spawn when qbx_spawn is unavailable. This prevents a
+    -- permanent fade/black screen and deliberately does not fake a Qbox load.
+    local spawn = Config.FallbackSpawn or vec4(-1037.8, -2737.8, 20.2, 330.0)
+    SetEntityCoords(cache.ped, spawn.x, spawn.y, spawn.z, false, false, false, false)
+    SetEntityHeading(cache.ped, spawn.w or 0.0)
+    FreezeEntityPosition(cache.ped, false)
+    SetEntityVisible(cache.ped, true, false)
+    DisplayRadar(true)
+    DoScreenFadeIn(500)
+    return false
 end
 
 RegisterNUICallback('previewCharacter', function(data, cb)
     cb({ ok = true })
     if busy or previewing then return end
-
     local citizenid = tostring(data and data.citizenid or '')
     if citizenid == '' or #citizenid > 64 then return end
-
     previewing = true
     local ok, clothing, model = pcall(function()
         return lib.callback.await('qbx_core:server:getPreviewPedData', false, citizenid)
     end)
-
     if ok and model and clothing then
-        local loaded = pcall(function()
+        pcall(function()
             lib.requestModel(model, Config.PreviewModelTimeout or 5000)
             SetPlayerModel(cache.playerId, model)
             if GetResourceState('illenium-appearance') == 'started' then
@@ -108,19 +91,13 @@ RegisterNUICallback('previewCharacter', function(data, cb)
             end
             SetModelAsNoLongerNeeded(model)
         end)
-
-        if not loaded then
-            notify('Character preview could not be displayed.', 'error')
-        end
     end
-
     previewing = false
 end)
 
 RegisterNUICallback('selectCharacter', function(data, cb)
     cb({ ok = true })
     if busy then return end
-
     local citizenid = tostring(data and data.citizenid or '')
     if citizenid == '' or #citizenid > 64 then
         notify('Invalid character selection.', 'error')
@@ -143,10 +120,7 @@ RegisterNUICallback('selectCharacter', function(data, cb)
     end
 
     busy = false
-    if not openQbxSpawn(citizenid) then
-        -- qbx_spawn is optional. If it is absent, use Qbox's own default path.
-        TriggerEvent('qbx_core:client:spawnNoApartments')
-    end
+    openSpawnSelector()
 end)
 
 RegisterNUICallback('createCharacter', function(data, cb)
@@ -188,8 +162,8 @@ RegisterNUICallback('createCharacter', function(data, cb)
         firstname = firstName,
         lastname = lastName,
         nationality = nationality,
-        birthdate = birthdate,
         gender = gender,
+        birthdate = birthdate,
     })
 
     if not newData then
@@ -200,37 +174,27 @@ RegisterNUICallback('createCharacter', function(data, cb)
         return
     end
 
-    -- qbx_core:server:createCharacter calls Login() and the client is loaded
-    -- before the callback returns. Do not wait for a second state flag and do
-    -- not call loadCharacter again. Hand off directly to Qbox's authoritative
-    -- no-apartment spawn implementation, matching qbx_core's own flow.
+    -- createCharacter() calls Login() on the server. Because qbx_core's
+    -- character.lua is disabled for external characters, there is no
+    -- spawnNoApartments listener to call. qbx_spawn is the authoritative
+    -- external spawn UI, so hand off directly to its setup event.
     busy = false
-    finishNewCharacter()
+    openSpawnSelector()
 end)
 
 RegisterNUICallback('deleteCharacter', function(data, cb)
     cb({ ok = true })
     if busy or not Config.DeleteCharacters then return end
-
     local citizenid = tostring(data and data.citizenid or '')
     if citizenid == '' or #citizenid > 64 then return end
-
     busy = true
     local success = lib.callback.await('qbx_core:server:deleteCharacter', false, citizenid)
     busy = false
-
-    if success then
-        notify('Character deleted.', 'success')
-    else
-        notify('Character could not be deleted.', 'error')
-    end
-
+    notify(success and 'Character deleted.' or 'Character could not be deleted.', success and 'success' or 'error')
     sendCharacters()
 end)
 
-RegisterNUICallback('ready', function(_, cb)
-    cb({ ok = true })
-end)
+RegisterNUICallback('ready', function(_, cb) cb({ ok = true }) end)
 
 RegisterNetEvent('qbx_core:client:playerLoggedOut', function()
     if GetInvokingResource() then return end
@@ -239,13 +203,21 @@ RegisterNetEvent('qbx_core:client:playerLoggedOut', function()
 end)
 
 CreateThread(function()
-    while GetResourceState('qbx_core') ~= 'started' do Wait(250) end
-    while not NetworkIsSessionStarted() do Wait(250) end
-
-    sessionReady = true
-    Wait(750)
-    openUi()
+    while true do
+        Wait(100)
+        if NetworkIsSessionStarted() then
+            sessionReady = true
+            pcall(function() exports.spawnmanager:setAutoSpawn(false) end)
+            Wait(500)
+            openUi()
+            break
+        end
+    end
 end)
 
-exports('OpenCharacterManager', openUi)
-exports('CloseCharacterManager', closeUi)
+AddEventHandler('onResourceStop', function(resource)
+    if resource == GetCurrentResourceName() then
+        SetNuiFocus(false, false)
+        DoScreenFadeIn(250)
+    end
+end)
