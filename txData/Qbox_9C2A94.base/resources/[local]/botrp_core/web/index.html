@@ -2,19 +2,62 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
   <title>BotRP HUD</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <section id="hud" class="hud" aria-live="polite">
-    <div class="brand"><span class="dot"></span>BOTRP</div>
-    <div class="row">
-      <div class="card"><span class="label">CASH</span><strong id="cash">$0</strong></div>
-      <div class="card"><span class="label">BANK</span><strong id="bank">$0</strong></div>
+  <main id="hud" class="hud" aria-live="polite">
+    <div class="hud-card">
+      <header class="brand-row">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span class="brand">BOTRP</span>
+      </header>
+
+      <section class="money-row" aria-label="Finances">
+        <div class="money-block">
+          <span class="label">CASH</span>
+          <strong id="cash" class="money-value">$0</strong>
+        </div>
+        <div class="money-block">
+          <span class="label">BANK</span>
+          <strong id="bank" class="money-value">$0</strong>
+        </div>
+      </section>
+
+      <div id="job" class="job">Civilian <span aria-hidden="true">·</span> Freelancer</div>
+
+      <div class="divider" aria-hidden="true"></div>
+
+      <section class="status-row" aria-label="Player status">
+        <div id="healthStatus" class="status-item">
+          <div class="status-icon health-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20.8 8.9c0 5.3-8.8 10.2-8.8 10.2S3.2 14.2 3.2 8.9A4.7 4.7 0 0 1 12 6.5a4.7 4.7 0 0 1 8.8 2.4Z"/></svg></div>
+          <span id="health" class="status-value">100%</span>
+        </div>
+
+        <div id="armorStatus" class="status-item">
+          <div class="status-icon armor-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 19 6v5c0 4.6-2.8 8-7 10-4.2-2-7-5.4-7-10V6l7-3Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <span id="armor" class="status-value">0%</span>
+        </div>
+
+        <div id="needsStatus" class="status-item">
+          <div class="status-icon needs-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2s6 7.1 6 12a6 6 0 1 1-12 0c0-4.9 6-12 6-12Z"/><path d="M9 15a3 3 0 0 0 3 2"/></svg></div>
+          <span id="needs" class="status-value">--%</span>
+        </div>
+
+        <div id="voiceStatus" class="status-item">
+          <div class="status-icon voice-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="12" rx="4"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg></div>
+          <span id="voice" class="status-value">Normal</span>
+        </div>
+
+        <div id="connectionStatus" class="status-item connection-item">
+          <div class="status-icon connection-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 9.5a10 10 0 0 1 14 0M8 13a6 6 0 0 1 8 0M11 16.5a2 2 0 0 1 2 0"/><circle cx="12" cy="20" r="1"/></svg></div>
+          <span id="connection" class="status-value">-- ms</span>
+        </div>
+      </section>
     </div>
-    <div class="job" id="job">Unemployed</div>
-  </section>
+  </main>
   <script src="app.js"></script>
 </body>
 </html>
