@@ -1,0 +1,1 @@
+The runtime logo path is @loadscreen/html/assets/logo.png.
