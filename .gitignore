@@ -1,0 +1,9 @@
+# Local FiveM secrets
+server.local.cfg
+**/server.local.cfg
+
+# Local runtime/cache
+**/cache/
+**/server-cache/
+**/server-cache-priv/
+**/logs/
