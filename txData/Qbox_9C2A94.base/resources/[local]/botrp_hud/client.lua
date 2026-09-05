@@ -43,7 +43,7 @@ end
 
 local function getNeeds(data)
     local metadata = type(data) == 'table' and data.metadata or {}
-    local state = LocalPlayer and LocalPlayer.state or {}
+    local state = type(LocalPlayer) == 'table' and LocalPlayer.state or {}
 
     local hunger = readNumber(metadata, {'hunger', 'food'}) or readNumber(state, {'hunger', 'food'})
     local thirst = readNumber(metadata, {'thirst', 'water'}) or readNumber(state, {'thirst', 'water'})
@@ -70,8 +70,14 @@ local function updateFps()
     local now = GetGameTimer()
     if now - lastFpsUpdate < 1000 then return end
     lastFpsUpdate = now
-    local frameTime = GetFrameTime()
-    if frameTime and frameTime > 0 then
+
+    if type(GetFrameTime) ~= 'function' then
+        fps = 0
+        return
+    end
+
+    local ok, frameTime = pcall(GetFrameTime)
+    if ok and tonumber(frameTime) and frameTime > 0 then
         fps = math.floor(1.0 / frameTime + 0.5)
     end
 end
