@@ -92,8 +92,9 @@ local function payloadChanged(payload)
 end
 
 local function sendHud(force)
-    if not nuiReady and not force then return end
-
+    -- Do not gate SendNUIMessage behind the ready callback. FiveM can deliver
+    -- messages while the NUI page is starting; the ready callback below then
+    -- sends a guaranteed fresh snapshot once the DOM is live.
     local payload = buildPayload()
     if force or payloadChanged(payload) then
         SendNUIMessage(payload)
@@ -112,6 +113,7 @@ end
 
 RegisterNUICallback('ready', function(_, cb)
     nuiReady = true
+    lastPayload = nil
     sendHud(true)
     cb({ ok = true })
 end)
@@ -119,7 +121,7 @@ end)
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     CreateThread(function()
         for _ = 1, 40 do
-            if nuiReady then sendHud(true) end
+            sendHud(true)
             if type(QBX) == 'table' and type(QBX.PlayerData) == 'table' and next(QBX.PlayerData) ~= nil then
                 playerDataCache = QBX.PlayerData
                 sendHud(true)
@@ -169,15 +171,13 @@ AddEventHandler('onClientResourceStart', function(resourceName)
 
     nuiReady = false
     lastPayload = nil
+    visible = true
 
     CreateThread(function()
-        -- NUI sends a ready callback as soon as its DOM is loaded. These retries
-        -- are only a startup safety net for clients that reload the resource.
+        -- Startup safety net. The HTML also sends /ready, but these retries
+        -- make a resource restart recover even if that callback is delayed.
         for _ = 1, 20 do
-            if nuiReady then
-                sendHud(true)
-                return
-            end
+            sendHud(true)
             Wait(250)
         end
     end)
