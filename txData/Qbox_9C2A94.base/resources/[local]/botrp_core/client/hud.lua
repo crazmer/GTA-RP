@@ -41,17 +41,47 @@ local function isVoiceMuted()
     return ok and muted == true
 end
 
-local function updateHud(force)
-    if not Config.hud.enabled then return end
-
+local function sendUpdate()
     local data = QBX.PlayerData
-    if not data or not data.charinfo then
-        if visible then
-            SendNUIMessage({ action = 'hide' })
-            visible = false
-        end
-        return
-    end
+    if not data or not data.charinfo then return false end
+
+    local money = data.money or {}
+    local job = data.job or {}
+    local ped = PlayerPedId()
+
+    SendNUIMessage({
+        action = 'update',
+        enabled = true,
+        cash = Config.hud.showCash and formatMoney(money.cash) or nil,
+        bank = Config.hud.showBank and formatMoney(money.bank) or nil,
+        job = Config.hud.showJob and (job.label or job.name or 'Unemployed') or nil,
+        grade = Config.hud.showJob and ((job.grade and (job.grade.name or job.grade.level)) or '') or nil,
+        health = Config.hud.showHealth and getHealthPercent(ped) or nil,
+        armor = Config.hud.showArmor and clampPercent(GetPedArmour(ped)) or nil,
+        needs = Config.hud.showNeeds and getNeeds(data) or nil,
+        voice = Config.hud.showVoice and getVoiceLabel() or nil,
+        voiceSpeaking = Config.hud.showVoice and NetworkIsPlayerTalking(PlayerId()) or false,
+        radioActive = Config.hud.showVoice and radioActive or false,
+        voiceMuted = Config.hud.showVoice and isVoiceMuted() or false,
+        connection = Config.hud.showConnection and GetPlayerPing(PlayerId()) or nil,
+        showCash = Config.hud.showCash,
+        showBank = Config.hud.showBank,
+        showJob = Config.hud.showJob,
+        showHealth = Config.hud.showHealth,
+        showArmor = Config.hud.showArmor,
+        showNeeds = Config.hud.showNeeds,
+        showVoice = Config.hud.showVoice,
+        showConnection = Config.hud.showConnection,
+        position = Config.hud.position,
+        scale = Config.hud.scale,
+        opacity = Config.hud.opacity,
+    })
+
+    return true
+end
+
+local function updateHud()
+    if not Config.hud.enabled then return end
 
     if IsPauseMenuActive() then
         if visible then
@@ -61,32 +91,12 @@ local function updateHud(force)
         return
     end
 
-    local money = data.money or {}
-    local job = data.job or {}
-    local ped = PlayerPedId()
-    local healthValue = Config.hud.showHealth and getHealthPercent(ped) or nil
-    local armorValue = Config.hud.showArmor and clampPercent(GetPedArmour(ped)) or nil
-    local needsValue = Config.hud.showNeeds and getNeeds(data) or nil
-    local pingValue = Config.hud.showConnection and GetPlayerPing(PlayerId()) or nil
-
-    SendNUIMessage({
-        action = 'update',
-        enabled = true,
-        cash = Config.hud.showCash and formatMoney(money.cash) or nil,
-        bank = Config.hud.showBank and formatMoney(money.bank) or nil,
-        job = Config.hud.showJob and (job.label or job.name or 'Unemployed') or nil,
-        grade = Config.hud.showJob and ((job.grade and (job.grade.name or job.grade.level)) or '') or nil,
-        health = healthValue,
-        armor = armorValue,
-        needs = needsValue,
-        voice = Config.hud.showVoice and getVoiceLabel() or nil,
-        voiceSpeaking = Config.hud.showVoice and NetworkIsPlayerTalking(PlayerId()) or false,
-        radioActive = Config.hud.showVoice and radioActive or false,
-        voiceMuted = Config.hud.showVoice and isVoiceMuted() or false,
-        connection = pingValue,
-    })
-
-    visible = true
+    if sendUpdate() then
+        visible = true
+    elseif visible then
+        SendNUIMessage({ action = 'hide' })
+        visible = false
+    end
 end
 
 local function hideHud()
@@ -95,27 +105,22 @@ local function hideHud()
     visible = false
 end
 
-RegisterNetEvent('QBCore:Client:OnMoneyChange', function()
-    updateHud(true)
-end)
-
-RegisterNetEvent('QBCore:Client:OnJobUpdate', function()
-    updateHud(true)
-end)
+RegisterNetEvent('QBCore:Client:OnMoneyChange', updateHud)
+RegisterNetEvent('QBCore:Client:OnJobUpdate', updateHud)
 
 RegisterNetEvent('pma-voice:setTalkingMode', function(mode)
     voiceMode = tonumber(mode) or 2
-    updateHud(true)
+    updateHud()
 end)
 
 RegisterNetEvent('pma-voice:radioActive', function(active)
     radioActive = active == true
-    updateHud(true)
+    updateHud()
 end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     Wait(1500)
-    updateHud(true)
+    updateHud()
 end)
 
 AddEventHandler('qbx_core:client:playerLoggedOut', hideHud)
@@ -123,10 +128,6 @@ AddEventHandler('qbx_core:client:playerLoggedOut', hideHud)
 CreateThread(function()
     while true do
         Wait(Config.hud.updateInterval or 750)
-        if QBX.PlayerData and QBX.PlayerData.charinfo then
-            updateHud(false)
-        elseif visible then
-            hideHud()
-        end
+        updateHud()
     end
 end)
