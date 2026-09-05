@@ -59,9 +59,33 @@ local function openUi()
     busy = false
 end
 
-local function spawnAfterCharacter(citizenid)
+-- Existing characters are already logged in by qbx_core:server:loadCharacter.
+-- Creation is different: qbx_core:createCharacter also logs the new character
+-- in immediately, so we must use the same post-create flow as Qbox itself and
+-- must not try to load the character a second time.
+local function spawnAfterCharacter(characterData, isNewCharacter)
     closeUi()
     DisplayRadar(false)
+
+    if isNewCharacter then
+        -- Qbox's apartment flow expects the complete new character data, not
+        -- just the citizenid. Passing only the citizenid leaves the player in
+        -- the faded/black state on fresh character creation.
+        if Config.PreferApartments and GetResourceState('qbx_apartments') == 'started' then
+            TriggerEvent('apartments:client:setupSpawnUI', characterData)
+            return
+        end
+
+        -- If apartments are unavailable, let qbx_core perform its normal
+        -- first-spawn flow. This also avoids depending on qbx_spawn's internal
+        -- argument conventions for newly-created characters.
+        TriggerEvent('qbx_core:client:spawnNoApartments')
+        return
+    end
+
+    -- Existing character: qbx_spawn/apartments can use the citizenid because
+    -- the character is already loaded.
+    local citizenid = type(characterData) == 'table' and characterData.citizenid or tostring(characterData or '')
 
     if Config.PreferApartments and GetResourceState('qbx_apartments') == 'started' then
         TriggerEvent('apartments:client:setupSpawnUI', citizenid)
@@ -74,6 +98,7 @@ local function spawnAfterCharacter(citizenid)
         return
     end
 
+    -- No external spawn resource: qbx_core owns the fallback.
     TriggerEvent('qbx_core:client:spawnNoApartments')
 end
 
@@ -132,7 +157,7 @@ RegisterNUICallback('selectCharacter', function(data, cb)
 
     Wait(250)
     busy = false
-    spawnAfterCharacter(citizenid)
+    spawnAfterCharacter(citizenid, false)
 end)
 
 RegisterNUICallback('createCharacter', function(data, cb)
@@ -168,6 +193,8 @@ RegisterNUICallback('createCharacter', function(data, cb)
     DoScreenFadeOut(250)
     while not IsScreenFadedOut() do Wait(0) end
 
+    -- qbx_core:createCharacter creates AND logs in the new player. Do not call
+    -- loadCharacter again afterwards.
     local newData = lib.callback.await('qbx_core:server:createCharacter', false, {
         firstname = firstName,
         lastname = lastName,
@@ -185,7 +212,7 @@ RegisterNUICallback('createCharacter', function(data, cb)
     end
 
     busy = false
-    spawnAfterCharacter(newData.citizenid)
+    spawnAfterCharacter(newData, true)
 end)
 
 RegisterNUICallback('deleteCharacter', function(data, cb)
