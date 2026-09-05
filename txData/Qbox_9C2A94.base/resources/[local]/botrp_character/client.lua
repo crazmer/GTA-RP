@@ -1,6 +1,7 @@
 local uiOpen = false
 local busy = false
 local sessionReady = false
+local previewing = false
 
 local function notify(message, type)
     lib.notify({
@@ -13,6 +14,7 @@ end
 local function closeUi()
     if not uiOpen then return end
     uiOpen = false
+    previewing = false
     SetNuiFocus(false, false)
     SendNUIMessage({ action = 'close' })
 end
@@ -72,10 +74,38 @@ local function spawnAfterCharacter(citizenid)
         return
     end
 
-    -- Let qbx_core handle its own default spawn path. This avoids duplicating
-    -- player-loaded events or persistence logic in BotRP.
     TriggerEvent('qbx_core:client:spawnNoApartments')
 end
+
+RegisterNUICallback('previewCharacter', function(data, cb)
+    cb({ ok = true })
+    if busy or previewing then return end
+
+    local citizenid = tostring(data and data.citizenid or '')
+    if citizenid == '' or #citizenid > 64 then return end
+
+    previewing = true
+    local ok, clothing, model = pcall(function()
+        return lib.callback.await('qbx_core:server:getPreviewPedData', false, citizenid)
+    end)
+
+    if ok and model and clothing then
+        local loaded = pcall(function()
+            lib.requestModel(model, Config.PreviewModelTimeout or 5000)
+            SetPlayerModel(cache.playerId, model)
+            if GetResourceState('illenium-appearance') == 'started' then
+                exports['illenium-appearance']:setPedAppearance(PlayerPedId(), json.decode(clothing))
+            end
+            SetModelAsNoLongerNeeded(model)
+        end)
+
+        if not loaded then
+            notify('Character preview could not be displayed.', 'error')
+        end
+    end
+
+    previewing = false
+end)
 
 RegisterNUICallback('selectCharacter', function(data, cb)
     cb({ ok = true })
