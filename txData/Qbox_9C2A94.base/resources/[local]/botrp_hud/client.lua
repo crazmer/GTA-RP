@@ -1,6 +1,7 @@
 local visible = false
 local voiceMode = 2
 local radioActive = false
+local loggedIn = false
 
 local function clamp(value, min, max)
     return math.max(min, math.min(max, value))
@@ -22,9 +23,11 @@ local function getNeeds(data)
     local metadata = data and data.metadata or {}
     local hunger = tonumber(metadata.hunger)
     local thirst = tonumber(metadata.thirst)
-    if not hunger and not thirst then return nil end
-    if not hunger then return math.floor(clamp(thirst, 0, 100)) end
-    if not thirst then return math.floor(clamp(hunger, 0, 100)) end
+
+    if hunger == nil and thirst == nil then return nil end
+    if hunger == nil then return math.floor(clamp(thirst, 0, 100)) end
+    if thirst == nil then return math.floor(clamp(hunger, 0, 100)) end
+
     return math.floor(math.min(clamp(hunger, 0, 100), clamp(thirst, 0, 100)))
 end
 
@@ -34,11 +37,20 @@ local function voiceLabel()
     return 'Normal'
 end
 
+local function getPlayerData()
+    if type(QBX) ~= 'table' then return nil end
+    if type(QBX.PlayerData) ~= 'table' then return nil end
+    return QBX.PlayerData
+end
+
 local function sendHud(data)
-    local playerData = data or QBX.PlayerData or {}
+    local playerData = data or getPlayerData()
+    if type(playerData) ~= 'table' then return false end
+
     local moneyData = playerData.money or {}
     local job = playerData.job or {}
-    local grade = job.grade and (job.grade.name or job.grade.level) or 'Freelancer'
+    local gradeData = job.grade or {}
+    local grade = gradeData.name or gradeData.level or 'Freelancer'
     local ped = PlayerPedId()
     local muted = false
 
@@ -64,6 +76,12 @@ local function sendHud(data)
     })
 
     visible = true
+    return true
+end
+
+local function refreshHud()
+    if not loggedIn then return end
+    sendHud()
 end
 
 local function hideHud()
@@ -71,50 +89,89 @@ local function hideHud()
     visible = false
 end
 
-RegisterNetEvent('QBCore:Client:OnMoneyChange', function()
-    sendHud()
+-- Qbox uses these events to publish the authoritative PlayerData table to
+-- clients. Listening to the full-data event is important because money,
+-- metadata and character/job changes are all reflected there.
+RegisterNetEvent('QBCore:Player:SetPlayerData', function(data)
+    loggedIn = true
+    sendHud(data)
 end)
 
-RegisterNetEvent('QBCore:Client:OnJobUpdate', function()
-    sendHud()
+RegisterNetEvent('qbx_core:client:onPlayerDataChanged', function()
+    loggedIn = true
+    refreshHud()
 end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
-    Wait(500)
-    sendHud()
+    loggedIn = true
+    CreateThread(function()
+        for _ = 1, 10 do
+            if sendHud() then return end
+            Wait(500)
+        end
+    end)
 end)
 
 RegisterNetEvent('qbx_core:client:playerLoaded', function()
-    Wait(500)
-    sendHud()
+    loggedIn = true
+    CreateThread(function()
+        for _ = 1, 10 do
+            if sendHud() then return end
+            Wait(500)
+        end
+    end)
+end)
+
+RegisterNetEvent('QBCore:Client:OnMoneyChange', function()
+    refreshHud()
+end)
+
+RegisterNetEvent('QBCore:Client:OnJobUpdate', function(job)
+    if type(QBX) == 'table' and type(QBX.PlayerData) == 'table' and type(job) == 'table' then
+        QBX.PlayerData.job = job
+    end
+    refreshHud()
+end)
+
+RegisterNetEvent('qbx_core:client:onSetMetaData', function()
+    refreshHud()
 end)
 
 RegisterNetEvent('pma-voice:setTalkingMode', function(mode)
     voiceMode = tonumber(mode) or 2
-    sendHud()
+    refreshHud()
 end)
 
 RegisterNetEvent('pma-voice:radioActive', function(active)
     radioActive = active == true
-    sendHud()
+    refreshHud()
 end)
 
-AddEventHandler('qbx_core:client:playerLoggedOut', hideHud)
+AddEventHandler('qbx_core:client:playerLoggedOut', function()
+    loggedIn = false
+    hideHud()
+end)
 
 AddEventHandler('onClientResourceStart', function(resourceName)
     if resourceName ~= GetCurrentResourceName() then return end
 
     CreateThread(function()
-        local timeout = GetGameTimer() + 10000
+        local timeout = GetGameTimer() + 15000
         while GetResourceState('qbx_core') ~= 'started' and GetGameTimer() < timeout do
             Wait(250)
         end
 
-        -- Send an initial payload even while character data is loading. This
-        -- guarantees the NUI itself is visible and prevents a silent HUD.
-        sendHud()
-        Wait(1000)
-        sendHud()
+        -- Qbox may start before the character is selected. Wait for its
+        -- PlayerData instead of sending a permanent zero/default payload.
+        while GetGameTimer() < timeout do
+            local data = getPlayerData()
+            if data and (data.charinfo or data.money or data.job) then
+                loggedIn = true
+                sendHud(data)
+                return
+            end
+            Wait(500)
+        end
     end)
 end)
 
@@ -124,8 +181,10 @@ CreateThread(function()
 
         if IsPauseMenuActive() then
             if visible then hideHud() end
-        else
-            if not visible then sendHud() else sendHud() end
+        elseif loggedIn then
+            -- Low-frequency local refresh keeps health/armor/voice/ping current
+            -- without polling the server or database.
+            refreshHud()
         end
     end
 end)
