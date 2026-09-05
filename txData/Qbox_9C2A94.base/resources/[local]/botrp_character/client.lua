@@ -59,47 +59,43 @@ local function openUi()
     busy = false
 end
 
--- Existing characters are already logged in by qbx_core:server:loadCharacter.
--- Creation is different: qbx_core:createCharacter also logs the new character
--- in immediately, so we must use the same post-create flow as Qbox itself and
--- must not try to load the character a second time.
+-- The external character manager means qbx_core's built-in character.lua is
+-- disabled. Therefore we must own the post-login spawn handoff as well.
+-- qbx_core's spawnNoApartments event is NOT registered while
+-- useExternalCharacters=true, so never depend on that event here.
 local function spawnAfterCharacter(characterData, isNewCharacter)
     closeUi()
     DisplayRadar(false)
 
-    if isNewCharacter then
-        -- Qbox's apartment flow expects the complete new character data, not
-        -- just the citizenid. Passing only the citizenid leaves the player in
-        -- the faded/black state on fresh character creation.
-        if Config.PreferApartments and GetResourceState('qbx_apartments') == 'started' then
-            TriggerEvent('apartments:client:setupSpawnUI', characterData)
-            return
-        end
-
-        -- If apartments are unavailable, let qbx_core perform its normal
-        -- first-spawn flow. This also avoids depending on qbx_spawn's internal
-        -- argument conventions for newly-created characters.
-        TriggerEvent('qbx_core:client:spawnNoApartments')
-        return
-    end
-
-    -- Existing character: qbx_spawn/apartments can use the citizenid because
-    -- the character is already loaded.
-    local citizenid = type(characterData) == 'table' and characterData.citizenid or tostring(characterData or '')
-
     if Config.PreferApartments and GetResourceState('qbx_apartments') == 'started' then
-        TriggerEvent('apartments:client:setupSpawnUI', citizenid)
+        -- qbx_apartments expects the complete data returned by
+        -- qbx_core:server:createCharacter for a newly created character.
+        local apartmentData = isNewCharacter and characterData or (type(characterData) == 'table' and characterData.citizenid or characterData)
+        TriggerEvent('apartments:client:setupSpawnUI', apartmentData)
         return
     end
 
     if Config.PreferQbxSpawn and GetResourceState('qbx_spawn') == 'started' then
-        TriggerEvent('qb-spawn:client:setupSpawns', citizenid)
-        TriggerEvent('qb-spawn:client:openUI', true)
+        -- qbx_spawn's setupSpawns event owns the complete spawn selection UI.
+        -- It reads the logged-in player's last location itself, so it does not
+        -- need a citizenid or a separate openUI event.
+        TriggerEvent('qb-spawn:client:setupSpawns')
         return
     end
 
-    -- No external spawn resource: qbx_core owns the fallback.
-    TriggerEvent('qbx_core:client:spawnNoApartments')
+    -- With external characters enabled, qbx_core does not register its normal
+    -- spawnNoApartments event. Keep a small local fallback instead.
+    local spawn = Config.DefaultSpawn or vec4(-540.58, -212.02, 37.65, 208.88)
+    local ped = PlayerPedId()
+
+    DoScreenFadeOut(500)
+    while not IsScreenFadedOut() do Wait(0) end
+    SetEntityCoords(ped, spawn.x, spawn.y, spawn.z, false, false, false, false)
+    SetEntityHeading(ped, spawn.w or 0.0)
+    FreezeEntityPosition(ped, false)
+    SetEntityVisible(ped, true, false)
+    DisplayRadar(true)
+    DoScreenFadeIn(750)
 end
 
 RegisterNUICallback('previewCharacter', function(data, cb)
@@ -193,8 +189,8 @@ RegisterNUICallback('createCharacter', function(data, cb)
     DoScreenFadeOut(250)
     while not IsScreenFadedOut() do Wait(0) end
 
-    -- qbx_core:createCharacter creates AND logs in the new player. Do not call
-    -- loadCharacter again afterwards.
+    -- qbx_core:createCharacter creates AND logs in the new player. It returns
+    -- the newData table and must not be followed by loadCharacter.
     local newData = lib.callback.await('qbx_core:server:createCharacter', false, {
         firstname = firstName,
         lastname = lastName,
