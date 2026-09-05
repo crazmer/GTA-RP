@@ -2,5 +2,6 @@
 # NEVER commit server.local.cfg.
 # Keep your Cfx.re key and database password private.
 
-sv_licenseKey "YOUR_CFX_LICENSE_KEY"
-set mysql_connection_string "mysql://USERNAME:PASSWORD@127.0.0.1:3306/qbox?charset=utf8mb4"
+sv_licenseKey "cfxk_vdHopV051qtiHIGQXtEC_iUKVJ"
+set mysql_connection_string "mysql://root:12345678@localhost/Qbox_9C2A94?charset=utf8mb4"
+
