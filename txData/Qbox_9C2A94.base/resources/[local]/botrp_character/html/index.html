@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>BotRP Character Manager</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="app" class="app hidden" aria-hidden="true">
+    <section class="panel" aria-label="Character selection">
+        <header class="header">
+            <div>
+                <div class="eyebrow"><span class="dot"></span><span id="serverName">BOTRP</span></div>
+                <h1 id="title">Choose your character</h1>
+                <p id="subtitle">Continue your story or create someone new.</p>
+            </div>
+            <div class="counter"><strong id="count">0</strong><span>CHARACTERS</span></div>
+        </header>
+
+        <section id="characters" class="characters"></section>
+
+        <section id="create" class="create hidden" aria-label="Create character">
+            <div class="section-title">Create character</div>
+            <div class="form-grid">
+                <label>First name<input id="firstname" maxlength="50" autocomplete="off" spellcheck="false"></label>
+                <label>Last name<input id="lastname" maxlength="50" autocomplete="off" spellcheck="false"></label>
+                <label>Nationality<input id="nationality" maxlength="50" value="American" autocomplete="off" spellcheck="false"></label>
+                <label>Birth date<input id="birthdate" type="date"></label>
+                <label>Gender<select id="gender"><option value="0">Male</option><option value="1">Female</option></select></label>
+            </div>
+            <div class="actions">
+                <button id="cancel" class="secondary" type="button">Back</button>
+                <button id="createBtn" class="primary" type="button">Create character</button>
+            </div>
+        </section>
+    </section>
+</main>
+<script src="script.js"></script>
+</body>
+</html>
