@@ -1,0 +1,1 @@
+Generated BotRP logo should be deployed as logo.png from the attached image.
