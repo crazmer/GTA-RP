@@ -1,7 +1,13 @@
 Config = {
+    identity = {
+        enabled = true,
+        verifyServerData = true,
+    },
+
     onboarding = {
         enabled = true,
     },
+
     hud = {
         enabled = true,
         showCash = true,
