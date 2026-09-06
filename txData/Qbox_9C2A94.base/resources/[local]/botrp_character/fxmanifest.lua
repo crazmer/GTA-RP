@@ -4,7 +4,7 @@ game 'gta5'
 name 'botrp_character'
 author 'BotRP Development'
 description 'BotRP character selection and creation layer for Qbox'
-version '0.2.0'
+version '0.3.1'
 
 lua54 'yes'
 
