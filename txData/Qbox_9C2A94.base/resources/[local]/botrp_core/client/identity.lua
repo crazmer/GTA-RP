@@ -26,7 +26,6 @@ local function buildIdentity(data)
         generation = generation,
         citizenid = clean(data.citizenid),
         userId = tonumber(data.userId) or nil,
-        license = clean(data.license),
         name = clean(data.name) or clean(('%s %s'):format(charinfo.firstname or '', charinfo.lastname or '')),
         firstname = clean(charinfo.firstname),
         lastname = clean(charinfo.lastname),
@@ -61,9 +60,8 @@ local function buildIdentity(data)
     }
 end
 
-local function publishIdentity(reason)
-    local nextIdentity = buildIdentity(QBX.PlayerData)
-    identity = nextIdentity
+local function publishIdentity(reason, suppliedIdentity)
+    identity = suppliedIdentity or buildIdentity(QBX.PlayerData)
 
     TriggerEvent('botrp_core:client:identityUpdated', identity, reason)
     if identity then
@@ -72,13 +70,19 @@ local function publishIdentity(reason)
 end
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
+    -- qbx_core sets QBX.IsLoggedIn before notifying listeners.
     Wait(0)
     publishIdentity('loaded')
+
+    local serverIdentity = lib.callback.await('botrp_core:server:getIdentity', false)
+    if serverIdentity and serverIdentity.citizenid == identity?.citizenid then
+        identity = serverIdentity
+        TriggerEvent('botrp_core:client:identityUpdated', identity, 'serverVerified')
+        TriggerEvent('BotRP:PlayerIdentityUpdated', identity, 'serverVerified')
+    end
 end)
 
 RegisterNetEvent('QBCore:Player:SetPlayerData', function(data)
-    -- qbx_core already keeps QBX.PlayerData authoritative. Rebuild locally so
-    -- HUD/phone/jobs can consume one normalized identity without extra callbacks.
     if type(data) == 'table' then
         QBX.PlayerData = data
     end
@@ -104,6 +108,10 @@ end)
 
 exports('GetCitizenId', function()
     return identity and identity.citizenid or nil
+end)
+
+exports('GetCharacterName', function()
+    return identity and identity.name or nil
 end)
 
 CreateThread(function()
