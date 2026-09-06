@@ -70,12 +70,11 @@ local function publishIdentity(reason, suppliedIdentity)
 end
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
-    -- qbx_core sets QBX.IsLoggedIn before notifying listeners.
     Wait(0)
     publishIdentity('loaded')
 
     local serverIdentity = lib.callback.await('botrp_core:server:getIdentity', false)
-    if serverIdentity and serverIdentity.citizenid == identity?.citizenid then
+    if serverIdentity and identity and serverIdentity.citizenid == identity.citizenid then
         identity = serverIdentity
         TriggerEvent('botrp_core:client:identityUpdated', identity, 'serverVerified')
         TriggerEvent('BotRP:PlayerIdentityUpdated', identity, 'serverVerified')
