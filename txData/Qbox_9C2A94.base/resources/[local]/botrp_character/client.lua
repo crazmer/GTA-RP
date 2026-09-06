@@ -21,19 +21,20 @@ local function sendCharacters()
     SendNUIMessage({ action = 'setCharacters', characters = characters, maxCharacters = amount, serverName = Config.ServerName })
 end
 
+local function stopLoadingScreen()
+    ShutdownLoadingScreen()
+    ShutdownLoadingScreenNui()
+end
+
 local function openUi()
     if uiOpen or busy or not sessionReady then return end
     busy = true
-    DoScreenFadeOut(250)
-    while not IsScreenFadedOut() do Wait(0) end
     DisplayRadar(false)
     pcall(function() exports.spawnmanager:setAutoSpawn(false) end)
-    ShutdownLoadingScreen()
-    ShutdownLoadingScreenNui()
+    stopLoadingScreen()
 
-    local ok = pcall(sendCharacters)
+    local ok, err = pcall(sendCharacters)
     if not ok then
-        DoScreenFadeIn(250)
         busy = false
         notify('Character data could not be loaded.', 'error')
         return
@@ -42,18 +43,46 @@ local function openUi()
     uiOpen = true
     SetNuiFocus(true, true)
     SendNUIMessage({ action = 'open', serverName = Config.ServerName })
-    DoScreenFadeIn(350)
     busy = false
 end
 
--- qbx_core's character.lua exits immediately when useExternalCharacters=true,
--- therefore its spawnNoApartments event does NOT exist. The external character
--- resource must hand the logged-in player to qbx_spawn itself.
-local function openSpawnSelector()
+local function safeGameplaySpawn()
+    -- New characters have no guaranteed persisted last-location yet. Do not
+    -- invoke qbx_spawn here: its camera/scaleform flow is unnecessary for a
+    -- newly-created player and can leave the client faded out if its UI fails.
     closeUi()
-    SetNuiFocus(false, false)
-    ShutdownLoadingScreen()
-    ShutdownLoadingScreenNui()
+    stopLoadingScreen()
+    DisplayRadar(false)
+
+    local spawn = Config.NewCharacterSpawn or vec4(-1037.8, -2737.8, 20.2, 330.0)
+    local deadline = GetGameTimer() + 10000
+
+    while (not DoesEntityExist(cache.ped) or not NetworkIsPlayerActive(cache.playerId)) and GetGameTimer() < deadline do
+        Wait(100)
+    end
+
+    if not DoesEntityExist(cache.ped) then
+        notify('Player entity was not ready. Please reconnect.', 'error')
+        busy = false
+        return false
+    end
+
+    RequestCollisionAtCoord(spawn.x, spawn.y, spawn.z)
+    SetEntityCoordsNoOffset(cache.ped, spawn.x, spawn.y, spawn.z, false, false, false)
+    SetEntityHeading(cache.ped, spawn.w or 0.0)
+    FreezeEntityPosition(cache.ped, false)
+    SetEntityVisible(cache.ped, true, false)
+    ClearPedTasksImmediately(cache.ped)
+    SetEntityInvincible(cache.ped, false)
+    DisplayRadar(true)
+    DoScreenFadeIn(500)
+    busy = false
+    return true
+end
+
+local function openExistingCharacterSpawn()
+    closeUi()
+    stopLoadingScreen()
     DisplayRadar(false)
 
     if GetResourceState('qbx_spawn') == 'started' then
@@ -61,16 +90,7 @@ local function openSpawnSelector()
         return true
     end
 
-    -- Last-resort safe spawn when qbx_spawn is unavailable. This prevents a
-    -- permanent fade/black screen and deliberately does not fake a Qbox load.
-    local spawn = Config.FallbackSpawn or vec4(-1037.8, -2737.8, 20.2, 330.0)
-    SetEntityCoords(cache.ped, spawn.x, spawn.y, spawn.z, false, false, false, false)
-    SetEntityHeading(cache.ped, spawn.w or 0.0)
-    FreezeEntityPosition(cache.ped, false)
-    SetEntityVisible(cache.ped, true, false)
-    DisplayRadar(true)
-    DoScreenFadeIn(500)
-    return false
+    return safeGameplaySpawn()
 end
 
 RegisterNUICallback('previewCharacter', function(data, cb)
@@ -83,14 +103,20 @@ RegisterNUICallback('previewCharacter', function(data, cb)
         return lib.callback.await('qbx_core:server:getPreviewPedData', false, citizenid)
     end)
     if ok and model and clothing then
-        pcall(function()
+        local modelOk = pcall(function()
             lib.requestModel(model, Config.PreviewModelTimeout or 5000)
             SetPlayerModel(cache.playerId, model)
             if GetResourceState('illenium-appearance') == 'started' then
-                exports['illenium-appearance']:setPedAppearance(PlayerPedId(), json.decode(clothing))
+                local appearance = json.decode(clothing)
+                if appearance then
+                    exports['illenium-appearance']:setPedAppearance(PlayerPedId(), appearance)
+                end
             end
             SetModelAsNoLongerNeeded(model)
         end)
+        if not modelOk then
+            notify('Character preview could not be loaded.', 'error')
+        end
     end
     previewing = false
 end)
@@ -105,22 +131,21 @@ RegisterNUICallback('selectCharacter', function(data, cb)
     end
 
     busy = true
-    DoScreenFadeOut(250)
-    while not IsScreenFadedOut() do Wait(0) end
-    ShutdownLoadingScreen()
-    ShutdownLoadingScreenNui()
+    SendNUIMessage({ action = 'setBusy', busy = true })
+    stopLoadingScreen()
 
     local success = lib.callback.await('qbx_core:server:loadCharacter', false, citizenid)
     if not success then
         DoScreenFadeIn(250)
         busy = false
+        SendNUIMessage({ action = 'setBusy', busy = false })
         notify('Unable to load that character.', 'error')
         sendCharacters()
         return
     end
 
     busy = false
-    openSpawnSelector()
+    openExistingCharacterSpawn()
 end)
 
 RegisterNUICallback('createCharacter', function(data, cb)
@@ -152,11 +177,12 @@ RegisterNUICallback('createCharacter', function(data, cb)
         return
     end
 
+    -- Keep the NUI visible while the server creates the character. Fading out
+    -- before the callback returns is what made callback failures look like a
+    -- permanent black screen.
     busy = true
-    DoScreenFadeOut(250)
-    while not IsScreenFadedOut() do Wait(0) end
-    ShutdownLoadingScreen()
-    ShutdownLoadingScreenNui()
+    SendNUIMessage({ action = 'setBusy', busy = true })
+    stopLoadingScreen()
 
     local newData = lib.callback.await('qbx_core:server:createCharacter', false, {
         firstname = firstName,
@@ -167,19 +193,18 @@ RegisterNUICallback('createCharacter', function(data, cb)
     })
 
     if not newData then
-        DoScreenFadeIn(250)
         busy = false
+        SendNUIMessage({ action = 'setBusy', busy = false })
         notify('Character creation failed. Check your details or character limit.', 'error')
-        sendCharacters()
         return
     end
 
-    -- createCharacter() calls Login() on the server. Because qbx_core's
-    -- character.lua is disabled for external characters, there is no
-    -- spawnNoApartments listener to call. qbx_spawn is the authoritative
-    -- external spawn UI, so hand off directly to its setup event.
-    busy = false
-    openSpawnSelector()
+    -- Qbox Login() has already loaded the new character. Do not call Login,
+    -- OnPlayerLoaded, spawnNoApartments, or qb-spawn again. New characters
+    -- receive one deterministic safe spawn; existing characters use qbx_spawn.
+    DoScreenFadeOut(150)
+    while not IsScreenFadedOut() do Wait(0) end
+    safeGameplaySpawn()
 end)
 
 RegisterNUICallback('deleteCharacter', function(data, cb)
