@@ -3,6 +3,7 @@ local busy = false
 local sessionReady = false
 local previewing = false
 local lifecycle = 'BOOT'
+local transitionStartedAt = 0
 
 local function debugLog(message)
     if Config.Debug then
@@ -35,7 +36,6 @@ end
 
 local function openUi()
     if uiOpen or busy or not sessionReady or QBX.IsLoggedIn then return end
-
     lifecycle = 'CHARACTER_SELECTION'
     debugLog('Opening character selection')
     busy = true
@@ -71,23 +71,33 @@ local function ensurePlayerEntity(timeout)
     return 0
 end
 
+local function forceGameplayVisible(ped)
+    if ped and ped ~= 0 and DoesEntityExist(ped) then
+        SetEntityVisible(ped, true, false)
+        SetEntityCollision(ped, true, true)
+        FreezeEntityPosition(ped, false)
+        SetEntityInvincible(ped, false)
+        ClearPedTasksImmediately(ped)
+    end
+    SetNuiFocus(false, false)
+    DisplayRadar(true)
+    stopLoadingScreen()
+    DoScreenFadeIn(0)
+end
+
 local function safeGameplaySpawn()
     lifecycle = 'SPAWNING'
+    transitionStartedAt = GetGameTimer()
     debugLog('Starting deterministic gameplay spawn')
 
     closeUi()
     stopLoadingScreen()
-    SetNuiFocus(false, false)
     DisplayRadar(false)
 
     local spawn = Config.NewCharacterSpawn or Config.FallbackSpawn or vec4(-1037.8, -2737.8, 20.2, 330.0)
     local ped = ensurePlayerEntity(10000)
-
     if ped == 0 then
-        debugLog('Player entity was not ready after creation')
-        SetNuiFocus(false, false)
-        DisplayRadar(true)
-        DoScreenFadeIn(0)
+        forceGameplayVisible(0)
         lifecycle = 'ERROR'
         busy = false
         notify('Player could not be initialized. Please reconnect.', 'error')
@@ -95,29 +105,47 @@ local function safeGameplaySpawn()
     end
 
     RequestCollisionAtCoord(spawn.x, spawn.y, spawn.z)
-    NewLoadSceneStart(spawn.x, spawn.y, spawn.z, spawn.x, spawn.y, spawn.z, 50.0, 0)
-
-    local collisionDeadline = GetGameTimer() + 5000
-    while not HasCollisionLoadedAroundEntity(ped) and GetGameTimer() < collisionDeadline do
-        RequestCollisionAtCoord(spawn.x, spawn.y, spawn.z)
-        Wait(50)
-    end
-    NewLoadSceneStop()
-
     SetEntityVisible(ped, true, false)
-    SetEntityInvincible(ped, false)
-    FreezeEntityPosition(ped, true)
-    ClearPedTasksImmediately(ped)
-    SetEntityCoordsNoOffset(ped, spawn.x, spawn.y, spawn.z, false, false, false)
-    SetEntityHeading(ped, spawn.w or 0.0)
     SetEntityCollision(ped, true, true)
-    FreezeEntityPosition(ped, false)
+    FreezeEntityPosition(ped, true)
 
-    DisplayRadar(true)
-    DoScreenFadeIn(0)
-    SetGameplayCamRelativePitch(0.0, 1.0)
-    lifecycle = 'COMPLETE'
+    local loadSceneStarted = false
+    local okScene = pcall(function()
+        NewLoadSceneStart(spawn.x, spawn.y, spawn.z, spawn.x, spawn.y, spawn.z, 50.0, 0)
+        loadSceneStarted = true
+    end)
+
+    if okScene then
+        local collisionDeadline = GetGameTimer() + 5000
+        while not HasCollisionLoadedAroundEntity(ped) and GetGameTimer() < collisionDeadline do
+            RequestCollisionAtCoord(spawn.x, spawn.y, spawn.z)
+            Wait(50)
+        end
+    else
+        debugLog('NewLoadSceneStart failed; continuing without scene preload')
+    end
+
+    if loadSceneStarted then
+        pcall(NewLoadSceneStop)
+    end
+
+    local moveOk, moveErr = pcall(function()
+        ClearPedTasksImmediately(ped)
+        SetEntityCoordsNoOffset(ped, spawn.x, spawn.y, spawn.z, false, false, false)
+        SetEntityHeading(ped, spawn.w or 0.0)
+    end)
+
+    forceGameplayVisible(ped)
     busy = false
+
+    if not moveOk then
+        lifecycle = 'ERROR'
+        debugLog(('Final player placement failed: %s'):format(tostring(moveErr)))
+        notify('Spawn placement failed. Please reconnect.', 'error')
+        return false
+    end
+
+    lifecycle = 'COMPLETE'
     debugLog('Character lifecycle COMPLETE')
     return true
 end
@@ -130,7 +158,13 @@ local function openExistingCharacterSpawn()
     DisplayRadar(false)
 
     if GetResourceState('qbx_spawn') == 'started' then
-        TriggerEvent('qb-spawn:client:setupSpawns')
+        local ok, err = pcall(function()
+            TriggerEvent('qb-spawn:client:setupSpawns')
+        end)
+        if not ok then
+            debugLog(('qbx_spawn handoff failed: %s'):format(tostring(err)))
+            return safeGameplaySpawn()
+        end
         return true
     end
 
@@ -142,12 +176,10 @@ RegisterNUICallback('previewCharacter', function(data, cb)
     if busy or previewing then return end
     local citizenid = tostring(data and data.citizenid or '')
     if citizenid == '' or #citizenid > 64 then return end
-
     previewing = true
     local ok, clothing, model = pcall(function()
         return lib.callback.await('qbx_core:server:getPreviewPedData', false, citizenid)
     end)
-
     if ok and model and clothing then
         local modelOk = pcall(function()
             local requested = lib.requestModel(model, Config.PreviewModelTimeout or 5000)
@@ -177,13 +209,12 @@ RegisterNUICallback('selectCharacter', function(data, cb)
 
     busy = true
     lifecycle = 'LOADING_CHARACTER'
-    debugLog(('Loading character %s'):format(citizenid))
     SendNUIMessage({ action = 'setBusy', busy = true })
     stopLoadingScreen()
 
     local success = lib.callback.await('qbx_core:server:loadCharacter', false, citizenid)
     if not success then
-        DoScreenFadeIn(0)
+        forceGameplayVisible(PlayerPedId())
         busy = false
         lifecycle = 'CHARACTER_SELECTION'
         SendNUIMessage({ action = 'setBusy', busy = false })
@@ -225,6 +256,7 @@ RegisterNUICallback('createCharacter', function(data, cb)
 
     busy = true
     lifecycle = 'CREATING_CHARACTER'
+    transitionStartedAt = GetGameTimer()
     debugLog('Create request received')
     SendNUIMessage({ action = 'setBusy', busy = true })
     stopLoadingScreen()
@@ -250,23 +282,23 @@ RegisterNUICallback('createCharacter', function(data, cb)
 
     debugLog('Qbox character creation complete')
     lifecycle = 'WAITING_FOR_PLAYER'
-    SendNUIMessage({ action = 'setBusy', busy = true })
 
-    -- Login() has already created the Player object server-side. We do not
-    -- call loadCharacter or trigger OnPlayerLoaded manually. Wait only until
-    -- the client-side Qbox state is ready, but never hold the screen black.
+    -- Qbox Login() has already created the server Player. The client load
+    -- event may arrive before or after this callback; neither case should
+    -- cause a black screen. Never fade out until the final spawn is ready.
     local deadline = GetGameTimer() + 10000
     while GetGameTimer() < deadline and not QBX.IsLoggedIn do
         Wait(50)
     end
 
-    if not QBX.IsLoggedIn then
-        debugLog('Qbox client login event did not arrive; continuing with safe spawn')
-    else
-        debugLog('Qbox client player initialized')
+    local spawnOk, spawnErr = pcall(safeGameplaySpawn)
+    if not spawnOk then
+        debugLog(('Post-create spawn threw an error: %s'):format(tostring(spawnErr)))
+        forceGameplayVisible(PlayerPedId())
+        lifecycle = 'ERROR'
+        busy = false
+        notify('Character was created, but spawn recovery was required.', 'error')
     end
-
-    safeGameplaySpawn()
 end)
 
 RegisterNUICallback('deleteCharacter', function(data, cb)
@@ -281,9 +313,7 @@ RegisterNUICallback('deleteCharacter', function(data, cb)
     sendCharacters()
 end)
 
-RegisterNUICallback('ready', function(_, cb)
-    cb({ ok = true })
-end)
+RegisterNUICallback('ready', function(_, cb) cb({ ok = true }) end)
 
 RegisterNetEvent('qbx_core:client:playerLoggedOut', function()
     if GetInvokingResource() then return end
@@ -294,7 +324,6 @@ end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     debugLog('Qbox player loaded event received')
-    if lifecycle == 'CHARACTER_SELECTION' then return end
     stopLoadingScreen()
 end)
 
@@ -309,14 +338,11 @@ CreateThread(function()
     debugLog('Resource started')
     while GetResourceState('qbx_core') ~= 'started' do Wait(250) end
     debugLog('qbx_core ready')
-
     while not NetworkIsSessionStarted() do Wait(250) end
     sessionReady = true
-
     pcall(function() exports.spawnmanager:setAutoSpawn(false) end)
     stopLoadingScreen()
     Wait(250)
-
     if not QBX.IsLoggedIn then
         openUi()
     else
@@ -325,20 +351,25 @@ CreateThread(function()
 end)
 
 CreateThread(function()
-    -- Last-resort recovery: while BotRP owns the character transition, never
-    -- permit the player to remain faded out indefinitely.
+    -- Absolute safety net: BotRP must never leave the player faded out during
+    -- a character transition, regardless of Qbox state or a downstream error.
     while true do
         Wait(1000)
-        if sessionReady and not QBX.IsLoggedIn and (lifecycle == 'WAITING_FOR_PLAYER' or lifecycle == 'SPAWNING') and IsScreenFadedOut() then
-            debugLog(('Fade watchdog recovered lifecycle state %s'):format(lifecycle))
-            DoScreenFadeIn(0)
+        if sessionReady and (lifecycle == 'CREATING_CHARACTER' or lifecycle == 'WAITING_FOR_PLAYER' or lifecycle == 'SPAWNING') then
+            local age = GetGameTimer() - transitionStartedAt
+            if IsScreenFadedOut() and age >= 5000 then
+                debugLog(('Fade watchdog recovered lifecycle state %s'):format(lifecycle))
+                forceGameplayVisible(PlayerPedId())
+                lifecycle = 'ERROR'
+                busy = false
+                notify('Character transition recovered from a stalled screen.', 'error')
+            end
         end
     end
 end)
 
 AddEventHandler('onResourceStop', function(resource)
     if resource == GetCurrentResourceName() then
-        SetNuiFocus(false, false)
-        DoScreenFadeIn(0)
+        forceGameplayVisible(PlayerPedId())
     end
 end)
