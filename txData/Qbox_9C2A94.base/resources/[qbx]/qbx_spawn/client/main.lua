@@ -32,77 +32,51 @@ local function managePlayer()
 end
 
 local function createSpawnArea()
-    for i = 1, #spawns, 1 do
+    for i = 1, #spawns do
         local spawn = spawns[i]
-        BeginScaleformMovieMethod(scaleform, 'ADD_AREA')
-        ScaleformMovieMethodAddParamInt(i)
-        ScaleformMovieMethodAddParamFloat(spawn.coords.x)
-        ScaleformMovieMethodAddParamFloat(spawn.coords.y)
-        ScaleformMovieMethodAddParamFloat(500.0)
-        ScaleformMovieMethodAddParamInt(255)
-        ScaleformMovieMethodAddParamInt(0)
-        ScaleformMovieMethodAddParamInt(0)
-        ScaleformMovieMethodAddParamInt(100)
-        EndScaleformMovieMethod()
+        if spawn and spawn.coords then
+            BeginScaleformMovieMethod(scaleform, 'ADD_AREA')
+            ScaleformMovieMethodAddParamInt(i)
+            ScaleformMovieMethodAddParamFloat(spawn.coords.x)
+            ScaleformMovieMethodAddParamFloat(spawn.coords.y)
+            ScaleformMovieMethodAddParamFloat(500.0)
+            ScaleformMovieMethodAddParamInt(255)
+            ScaleformMovieMethodAddParamInt(0)
+            ScaleformMovieMethodAddParamInt(0)
+            ScaleformMovieMethodAddParamInt(100)
+            EndScaleformMovieMethod()
+        end
     end
 end
 
 local function setupInstructionalButton(index, control, text)
     BeginScaleformMovieMethod(buttonsScaleform, 'SET_DATA_SLOT')
-
     ScaleformMovieMethodAddParamInt(index)
-
     ScaleformMovieMethodAddParamPlayerNameString(GetControlInstructionalButton(2, control, true))
-
     BeginTextCommandScaleformString('STRING')
     AddTextComponentSubstringKeyboardDisplay(text)
     EndTextCommandScaleformString()
-
     EndScaleformMovieMethod()
 end
 
 local function setupInstructionalScaleform()
     DrawScaleformMovieFullscreen(buttonsScaleform, 255, 255, 255, 0, 0)
-
     BeginScaleformMovieMethod(buttonsScaleform, 'CLEAR_ALL')
     EndScaleformMovieMethod()
-
     BeginScaleformMovieMethod(buttonsScaleform, 'SET_CLEAR_SPACE')
     ScaleformMovieMethodAddParamInt(200)
     EndScaleformMovieMethod()
-
     setupInstructionalButton(0, 191, 'Submit')
     setupInstructionalButton(1, 187, 'Down')
     setupInstructionalButton(2, 188, 'Up')
-
     BeginScaleformMovieMethod(buttonsScaleform, 'DRAW_INSTRUCTIONAL_BUTTONS')
     EndScaleformMovieMethod()
 end
 
-local function setupMap()
-    scaleform = lib.requestScaleformMovie('HEISTMAP_MP', 5000) or 0
-    buttonsScaleform = lib.requestScaleformMovie('INSTRUCTIONAL_BUTTONS', 5000) or 0
-    CreateThread(function()
-        setupInstructionalScaleform()
-        createSpawnArea()
-        while DoesCamExist(previewCam) do
-            DrawScaleformMovie_3d(scaleform, -24.86, -593.38, 91.8, -180.0, -180.0, -20.0, 0.0, 2.0, 0.0, 3.815, 2.27, 1.0, 2)
-
-            HideHudComponentThisFrame(6)
-            HideHudComponentThisFrame(7)
-            HideHudComponentThisFrame(9)
-
-            DrawScaleformMovieFullscreen(buttonsScaleform, 255, 255, 255, 255, 0)
-            Wait(0)
-        end
-
-        SetScaleformMovieAsNoLongerNeeded(scaleform)
-        SetScaleformMovieAsNoLongerNeeded(buttonsScaleform)
-    end)
-end
-
 local function scaleformDetails(index)
     local spawn = spawns[index]
+    if not spawn or not spawn.coords then return end
+
     local arrowStart = {
         vec2(-3150.25, -1427.83),
         vec2(4173.08, 1338.72),
@@ -141,7 +115,6 @@ local function scaleformDetails(index)
     EndScaleformMovieMethod()
 
     local randomCoords = arrowStart[math.random(#arrowStart)]
-
     BeginScaleformMovieMethod(scaleform, 'ADD_ARROW')
     ScaleformMovieMethodAddParamInt(index)
     ScaleformMovieMethodAddParamFloat(randomCoords.x)
@@ -163,19 +136,16 @@ end
 local function updateScaleform()
     if previousButtonId == currentButtonId then return end
 
-    for i = 1, #spawns, 1 do
+    for i = 1, #spawns do
         BeginScaleformMovieMethod(scaleform, 'REMOVE_HIGHLIGHT')
         ScaleformMovieMethodAddParamInt(i)
         EndScaleformMovieMethod()
-
         BeginScaleformMovieMethod(scaleform, 'REMOVE_TEXT')
         ScaleformMovieMethodAddParamInt(i)
         EndScaleformMovieMethod()
-
         BeginScaleformMovieMethod(scaleform, 'REMOVE_ARROW')
         ScaleformMovieMethodAddParamInt(i)
         EndScaleformMovieMethod()
-
         BeginScaleformMovieMethod(scaleform, 'COLOUR_AREA')
         ScaleformMovieMethodAddParamInt(i)
         ScaleformMovieMethodAddParamInt(255)
@@ -193,27 +163,16 @@ local function inputHandler()
         if IsControlJustReleased(0, 188) then
             previousButtonId = currentButtonId
             currentButtonId -= 1
-
-            if currentButtonId < 1 then
-                currentButtonId = #spawns
-            end
-
+            if currentButtonId < 1 then currentButtonId = #spawns end
             updateScaleform()
         elseif IsControlJustReleased(0, 187) then
             previousButtonId = currentButtonId
             currentButtonId += 1
-
-            if currentButtonId > #spawns then
-                currentButtonId = 1
-            end
-
+            if currentButtonId > #spawns then currentButtonId = 1 end
             updateScaleform()
         elseif IsControlJustReleased(0, 191) then
             DoScreenFadeOut(1000)
-
-            while not IsScreenFadedOut() do
-                Wait(0)
-            end
+            while not IsScreenFadedOut() do Wait(0) end
 
             TriggerServerEvent('QBCore:Server:OnPlayerLoaded')
             TriggerEvent('QBCore:Client:OnPlayerLoaded')
@@ -221,7 +180,6 @@ local function inputHandler()
             DisplayRadar(true)
 
             local spawnData = spawns[currentButtonId]
-
             if spawnData.propertyId then
                 TriggerServerEvent('qbx_properties:server:enterProperty', { id = spawnData.propertyId, isSpawn = true })
             else
@@ -230,43 +188,52 @@ local function inputHandler()
             end
 
             DoScreenFadeIn(1000)
-
             break
         end
-
         Wait(0)
     end
-
     stopCamera()
 end
 
 RegisterNetEvent('qb-spawn:client:setupSpawns', function()
     spawns = {}
+    currentButtonId = 1
+    previousButtonId = 1
 
     local lastCoords, lastPropertyId = lib.callback.await('qbx_spawn:server:getLastLocation')
-    spawns[#spawns + 1] = {
-        label = locale('last_location'),
-        coords = lastCoords,
-        propertyId = lastPropertyId
-    }
-
-    for i = 1, #config.spawns do
-        spawns[#spawns + 1] = config.spawns[i]
+    if type(lastCoords) == 'table' and lastCoords.x and lastCoords.y and lastCoords.z then
+        spawns[#spawns + 1] = {
+            label = locale('last_location'),
+            coords = lastCoords,
+            propertyId = lastPropertyId
+        }
     end
 
-    local properties = lib.callback.await('qbx_spawn:server:getProperties')
+    for i = 1, #config.spawns do
+        local spawn = config.spawns[i]
+        if spawn and spawn.coords then
+            spawns[#spawns + 1] = spawn
+        end
+    end
+
+    local properties = lib.callback.await('qbx_spawn:server:getProperties') or {}
     for i = 1, #properties do
-        spawns[#spawns + 1] = properties[i]
+        local property = properties[i]
+        if property and property.coords then
+            spawns[#spawns + 1] = property
+        end
+    end
+
+    if #spawns == 0 then
+        local fallback = Config and Config.FallbackSpawn or vec4(-1037.8, -2737.8, 20.2, 330.0)
+        spawns[1] = { label = 'Los Santos', coords = fallback }
     end
 
     Wait(400)
-
     managePlayer()
     setupCamera()
     setupMap()
-
     Wait(400)
-
     scaleformDetails(currentButtonId)
     inputHandler()
 end)
