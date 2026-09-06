@@ -1,18 +1,13 @@
 const app = document.getElementById('app');
 const charactersEl = document.getElementById('characters');
-const createEl = document.getElementById('create');
 const loadingEl = document.getElementById('loading');
 const loadingTextEl = document.getElementById('loadingText');
 const countEl = document.getElementById('count');
-const titleEl = document.getElementById('title');
-const subtitleEl = document.getElementById('subtitle');
 const serverNameEl = document.getElementById('serverName');
 const confirmEl = document.getElementById('confirm');
 const confirmTextEl = document.getElementById('confirmText');
 const confirmDeleteEl = document.getElementById('confirmDelete');
 const confirmCancelEl = document.getElementById('confirmCancel');
-const createErrorEl = document.getElementById('createError');
-const createButtonEl = document.getElementById('createBtn');
 
 const ConfigDeleteEnabled = true;
 
@@ -45,20 +40,21 @@ const post = (name, data = {}, timeoutMs = 15000) => {
 const money = value => `$${Number(value || 0).toLocaleString('en-US')}`;
 const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
 
-function setError(message = '') {
-    createErrorEl.textContent = message;
-    createErrorEl.classList.toggle('visible', Boolean(message));
-}
-
 function setLoading(show, text = 'Loading characters...') {
     loadingTextEl.textContent = text;
     loadingEl.classList.toggle('hidden', !show);
     charactersEl.classList.toggle('hidden', show);
 }
 
+function setSubmitting(value) {
+    submitting = value;
+    document.querySelectorAll('button').forEach(el => { el.disabled = value; });
+}
+
 function render() {
     countEl.textContent = `${characters.length}/${maxCharacters}`;
     charactersEl.replaceChildren();
+
     characters.forEach((character, index) => {
         const info = character.charinfo || {};
         const job = character.job || {};
@@ -84,6 +80,7 @@ function render() {
                 <button class="primary play" type="button">Play <span class="button-arrow">→</span></button>
                 ${ConfigDeleteEnabled ? '<button class="danger delete" type="button">Delete</button>' : ''}
             </div>`;
+
         card.addEventListener('click', event => {
             if (event.target.closest('button')) return;
             selectPreview(character, card);
@@ -105,11 +102,9 @@ function render() {
         card.className = 'card empty';
         card.innerHTML = `
             <div class="slot">SLOT ${String(slot).padStart(2, '0')}</div>
-            <div class="empty-icon">+</div>
-            <div class="name">New character</div>
-            <p>Create a new identity and start a new story.</p>
-            <div class="actions"><button class="primary" type="button">Create character <span class="button-arrow">→</span></button></div>`;
-        card.querySelector('button').onclick = showCreate;
+            <div class="empty-icon">—</div>
+            <div class="name">Empty slot</div>
+            <p>Character creation is currently disabled. An administrator can provision additional characters.</p>`;
         charactersEl.appendChild(card);
     }
 }
@@ -129,26 +124,15 @@ function selectPreview(character, card) {
     post('previewCharacter', { citizenid }, 10000);
 }
 
-function setSubmitting(value) {
-    submitting = value;
-    document.querySelectorAll('button,input,select').forEach(el => { el.disabled = value; });
-    createButtonEl.querySelector('span:first-child').textContent = value ? 'Creating...' : 'Create character';
-    createButtonEl.classList.toggle('busy', value);
-}
-
 async function selectCharacter(citizenid) {
     if (submitting || !citizenid) return;
     setSubmitting(true);
     const result = await post('selectCharacter', { citizenid }, 20000);
     if (!result.ok) {
         setSubmitting(false);
-        alertResult(result, 'Unable to load that character.');
+        const message = result?.error === 'timeout' ? 'The server took too long to respond. Please try again.' : (result?.message || 'Unable to load that character.');
+        window.alert(message);
     }
-}
-
-function alertResult(result, fallback) {
-    const message = result?.error === 'timeout' ? 'The server took too long to respond. Please try again.' : (result?.message || fallback);
-    setError(message);
 }
 
 function openDelete(name, citizenid) {
@@ -170,47 +154,31 @@ async function deleteCharacter() {
     closeDelete();
     setSubmitting(true);
     const result = await post('deleteCharacter', { citizenid });
-    if (!result.ok) alertResult(result, 'Character could not be deleted.');
+    if (!result.ok) window.alert(result?.message || 'Character could not be deleted.');
     setSubmitting(false);
 }
 
-function showCreate() {
-    charactersEl.classList.add('hidden');
-    createEl.classList.remove('hidden');
-    titleEl.textContent = 'Create your character';
-    subtitleEl.textContent = 'Give your character a name, background and identity.';
-    setError('');
-    document.getElementById('firstname').focus();
-}
-
 function showCharacters() {
-    createEl.classList.add('hidden');
-    charactersEl.classList.remove('hidden');
-    titleEl.textContent = 'Choose your character';
-    subtitleEl.textContent = 'Continue your story or create someone new.';
-    setError('');
+    countEl.textContent = `${characters.length}/${maxCharacters}`;
     selectedCitizenId = null;
-}
-
-function validBirthdate(value) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-    const date = new Date(`${value}T00:00:00Z`);
-    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
 window.addEventListener('message', event => {
     const data = event.data || {};
     if (data.serverName) serverNameEl.textContent = String(data.serverName).toUpperCase();
+
     if (data.action === 'open') {
         app.classList.remove('hidden');
         app.setAttribute('aria-hidden', 'false');
     }
+
     if (data.action === 'close') {
         app.classList.add('hidden');
         app.setAttribute('aria-hidden', 'true');
-        confirmEl.classList.add('hidden');
+        closeDelete();
         setSubmitting(false);
     }
+
     if (data.action === 'setCharacters') {
         characters = Array.isArray(data.characters) ? data.characters : [];
         maxCharacters = Math.max(1, Number(data.maxCharacters || 6));
@@ -224,44 +192,9 @@ window.addEventListener('message', event => {
 confirmCancelEl.onclick = closeDelete;
 confirmDeleteEl.onclick = deleteCharacter;
 confirmEl.addEventListener('click', event => { if (event.target === confirmEl) closeDelete(); });
-document.getElementById('cancel').onclick = () => { if (!submitting) showCharacters(); };
-
-createButtonEl.onclick = async () => {
-    if (submitting) return;
-    setError('');
-    const firstname = document.getElementById('firstname').value.trim();
-    const lastname = document.getElementById('lastname').value.trim();
-    const nationality = document.getElementById('nationality').value.trim();
-    const birthdate = document.getElementById('birthdate').value;
-    const gender = Number(document.getElementById('gender').value);
-
-    const problems = [];
-    if (firstname.length < 2) problems.push('First name must be at least 2 characters.');
-    if (lastname.length < 2) problems.push('Last name must be at least 2 characters.');
-    if (nationality.length < 2) problems.push('Nationality must be at least 2 characters.');
-    if (!validBirthdate(birthdate)) problems.push('Select a valid birth date.');
-    if (gender !== 0 && gender !== 1) problems.push('Select a valid gender.');
-    if (problems.length) {
-        setError(problems[0]);
-        return;
-    }
-
-    setSubmitting(true);
-    const result = await post('createCharacter', { firstname, lastname, nationality, birthdate, gender }, 20000);
-    if (!result.ok) {
-        setSubmitting(false);
-        alertResult(result, 'Character creation failed. Please try again.');
-    }
-};
 
 document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') {
-        if (!confirmEl.classList.contains('hidden')) {
-            closeDelete();
-            return;
-        }
-        if (!submitting && !createEl.classList.contains('hidden')) showCharacters();
-    }
+    if (event.key === 'Escape' && !submitting && !confirmEl.classList.contains('hidden')) closeDelete();
 });
 
 post('ready', {}, 5000);
