@@ -13,12 +13,16 @@ local function setupCamera()
 end
 
 local function stopCamera()
-    SetCamActive(previewCam, false)
-    DestroyCam(previewCam, true)
+    if previewCam and DoesCamExist(previewCam) then
+        SetCamActive(previewCam, false)
+        DestroyCam(previewCam, true)
+    end
     RenderScriptCams(false, false, 1, true, true)
 
-    BeginScaleformMovieMethod(scaleform, 'CLEANUP')
-    EndScaleformMovieMethod()
+    if scaleform and scaleform ~= 0 then
+        BeginScaleformMovieMethod(scaleform, 'CLEANUP')
+        EndScaleformMovieMethod()
+    end
 end
 
 local function managePlayer()
@@ -73,9 +77,36 @@ local function setupInstructionalScaleform()
     EndScaleformMovieMethod()
 end
 
+-- This function was missing from the previous BotRP copy of qbx_spawn.
+-- Without it, setupSpawns() errors before the spawn selector can render,
+-- leaving the screen faded out after character creation.
+local function setupMap()
+    scaleform = lib.requestScaleformMovie('HEISTMAP_MP', 5000) or 0
+    buttonsScaleform = lib.requestScaleformMovie('INSTRUCTIONAL_BUTTONS', 5000) or 0
+
+    CreateThread(function()
+        if scaleform == 0 or buttonsScaleform == 0 then return end
+
+        setupInstructionalScaleform()
+        createSpawnArea()
+
+        while previewCam and DoesCamExist(previewCam) do
+            DrawScaleformMovie_3d(scaleform, -24.86, -593.38, 91.8, -180.0, -180.0, -20.0, 0.0, 2.0, 0.0, 3.815, 2.27, 1.0, 2)
+            HideHudComponentThisFrame(6)
+            HideHudComponentThisFrame(7)
+            HideHudComponentThisFrame(9)
+            DrawScaleformMovieFullscreen(buttonsScaleform, 255, 255, 255, 255, 0)
+            Wait(0)
+        end
+
+        if scaleform ~= 0 then SetScaleformMovieAsNoLongerNeeded(scaleform) end
+        if buttonsScaleform ~= 0 then SetScaleformMovieAsNoLongerNeeded(buttonsScaleform) end
+    end)
+end
+
 local function scaleformDetails(index)
     local spawn = spawns[index]
-    if not spawn or not spawn.coords then return end
+    if not spawn or not spawn.coords or not scaleform or scaleform == 0 then return end
 
     local arrowStart = {
         vec2(-3150.25, -1427.83),
@@ -104,7 +135,7 @@ local function scaleformDetails(index)
 
     BeginScaleformMovieMethod(scaleform, 'ADD_TEXT')
     ScaleformMovieMethodAddParamInt(index)
-    ScaleformMovieMethodAddParamTextureNameString(spawn.label)
+    ScaleformMovieMethodAddParamTextureNameString(spawn.label or ('Spawn ' .. index))
     ScaleformMovieMethodAddParamFloat(spawn.coords.x)
     ScaleformMovieMethodAddParamFloat(spawn.coords.y - 500)
     ScaleformMovieMethodAddParamFloat(25 - math.random(0, 50))
@@ -159,7 +190,7 @@ local function updateScaleform()
 end
 
 local function inputHandler()
-    while DoesCamExist(previewCam) do
+    while previewCam and DoesCamExist(previewCam) do
         if IsControlJustReleased(0, 188) then
             previousButtonId = currentButtonId
             currentButtonId -= 1
@@ -171,6 +202,19 @@ local function inputHandler()
             if currentButtonId > #spawns then currentButtonId = 1 end
             updateScaleform()
         elseif IsControlJustReleased(0, 191) then
+            local spawnData = spawns[currentButtonId]
+            if not spawnData or not spawnData.coords then
+                currentButtonId = 1
+                spawnData = spawns[1]
+            end
+            if not spawnData or not spawnData.coords then
+                stopCamera()
+                FreezeEntityPosition(cache.ped, false)
+                DisplayRadar(true)
+                DoScreenFadeIn(500)
+                return
+            end
+
             DoScreenFadeOut(1000)
             while not IsScreenFadedOut() do Wait(0) end
 
@@ -179,8 +223,7 @@ local function inputHandler()
             FreezeEntityPosition(cache.ped, false)
             DisplayRadar(true)
 
-            local spawnData = spawns[currentButtonId]
-            if spawnData.propertyId then
+            if spawnData.propertyId and GetResourceState('qbx_properties'):find('start') then
                 TriggerServerEvent('qbx_properties:server:enterProperty', { id = spawnData.propertyId, isSpawn = true })
             else
                 SetEntityCoords(cache.ped, spawnData.coords.x, spawnData.coords.y, spawnData.coords.z, false, false, false, false)
@@ -188,11 +231,11 @@ local function inputHandler()
             end
 
             DoScreenFadeIn(1000)
+            stopCamera()
             break
         end
         Wait(0)
     end
-    stopCamera()
 end
 
 RegisterNetEvent('qb-spawn:client:setupSpawns', function()
@@ -225,14 +268,14 @@ RegisterNetEvent('qb-spawn:client:setupSpawns', function()
     end
 
     if #spawns == 0 then
-        local fallback = Config and Config.FallbackSpawn or vec4(-1037.8, -2737.8, 20.2, 330.0)
-        spawns[1] = { label = 'Los Santos', coords = fallback }
+        spawns[1] = { label = 'Los Santos', coords = vec4(-1037.8, -2737.8, 20.2, 330.0) }
     end
 
     Wait(400)
     managePlayer()
     setupCamera()
     setupMap()
+
     Wait(400)
     scaleformDetails(currentButtonId)
     inputHandler()
