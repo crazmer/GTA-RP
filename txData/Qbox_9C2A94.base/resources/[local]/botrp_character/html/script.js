@@ -11,6 +11,10 @@ const confirmEl = document.getElementById('confirm');
 const confirmTextEl = document.getElementById('confirmText');
 const confirmDeleteEl = document.getElementById('confirmDelete');
 const confirmCancelEl = document.getElementById('confirmCancel');
+const createErrorEl = document.getElementById('createError');
+const createButtonEl = document.getElementById('createBtn');
+
+const ConfigDeleteEnabled = true;
 
 let characters = [];
 let maxCharacters = 6;
@@ -19,14 +23,32 @@ let selectedCitizenId = null;
 let deleteTarget = null;
 let previewTarget = null;
 
-const post = (name, data = {}) => fetch(`https://${GetParentResourceName()}/${name}`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json; charset=UTF-8'},
-    body: JSON.stringify(data)
-}).catch(() => null);
+const post = (name, data = {}, timeoutMs = 15000) => {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = setTimeout(() => controller?.abort(), timeoutMs);
+    return fetch(`https://${GetParentResourceName()}/${name}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: JSON.stringify(data),
+        signal: controller?.signal
+    }).then(async response => {
+        clearTimeout(timer);
+        let payload = {};
+        try { payload = await response.json(); } catch (_) {}
+        return { ok: response.ok, ...payload };
+    }).catch(error => {
+        clearTimeout(timer);
+        return { ok: false, error: error?.name === 'AbortError' ? 'timeout' : 'nui_request_failed' };
+    });
+};
 
 const money = value => `$${Number(value || 0).toLocaleString('en-US')}`;
 const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+
+function setError(message = '') {
+    createErrorEl.textContent = message;
+    createErrorEl.classList.toggle('visible', Boolean(message));
+}
 
 function setLoading(show, text = 'Loading characters...') {
     loadingTextEl.textContent = text;
@@ -37,8 +59,6 @@ function setLoading(show, text = 'Loading characters...') {
 function render() {
     countEl.textContent = `${characters.length}/${maxCharacters}`;
     charactersEl.replaceChildren();
-
-    const bySlot = new Map();
     characters.forEach((character, index) => {
         const info = character.charinfo || {};
         const job = character.job || {};
@@ -64,7 +84,6 @@ function render() {
                 <button class="primary play" type="button">Play <span class="button-arrow">→</span></button>
                 ${ConfigDeleteEnabled ? '<button class="danger delete" type="button">Delete</button>' : ''}
             </div>`;
-
         card.addEventListener('click', event => {
             if (event.target.closest('button')) return;
             selectPreview(character, card);
@@ -79,7 +98,6 @@ function render() {
         const deleteButton = card.querySelector('.delete');
         if (deleteButton) deleteButton.onclick = () => openDelete(name, citizenid);
         charactersEl.appendChild(card);
-        bySlot.set(index + 1, true);
     });
 
     for (let slot = characters.length + 1; slot <= maxCharacters; slot++) {
@@ -108,19 +126,29 @@ function selectPreview(character, card) {
     badge.className = 'selected-badge';
     badge.textContent = 'SELECTED';
     card.appendChild(badge);
-    post('previewCharacter', { citizenid });
+    post('previewCharacter', { citizenid }, 10000);
 }
 
 function setSubmitting(value) {
     submitting = value;
     document.querySelectorAll('button,input,select').forEach(el => { el.disabled = value; });
+    createButtonEl.querySelector('span:first-child').textContent = value ? 'Creating...' : 'Create character';
+    createButtonEl.classList.toggle('busy', value);
 }
 
 async function selectCharacter(citizenid) {
     if (submitting || !citizenid) return;
     setSubmitting(true);
-    loadingTextEl.textContent = 'Loading character...';
-    await post('selectCharacter', { citizenid });
+    const result = await post('selectCharacter', { citizenid }, 20000);
+    if (!result.ok) {
+        setSubmitting(false);
+        alertResult(result, 'Unable to load that character.');
+    }
+}
+
+function alertResult(result, fallback) {
+    const message = result?.error === 'timeout' ? 'The server took too long to respond. Please try again.' : (result?.message || fallback);
+    setError(message);
 }
 
 function openDelete(name, citizenid) {
@@ -141,7 +169,8 @@ async function deleteCharacter() {
     const citizenid = deleteTarget;
     closeDelete();
     setSubmitting(true);
-    await post('deleteCharacter', { citizenid });
+    const result = await post('deleteCharacter', { citizenid });
+    if (!result.ok) alertResult(result, 'Character could not be deleted.');
     setSubmitting(false);
 }
 
@@ -150,6 +179,7 @@ function showCreate() {
     createEl.classList.remove('hidden');
     titleEl.textContent = 'Create your character';
     subtitleEl.textContent = 'Give your character a name, background and identity.';
+    setError('');
     document.getElementById('firstname').focus();
 }
 
@@ -158,25 +188,29 @@ function showCharacters() {
     charactersEl.classList.remove('hidden');
     titleEl.textContent = 'Choose your character';
     subtitleEl.textContent = 'Continue your story or create someone new.';
+    setError('');
     selectedCitizenId = null;
+}
+
+function validBirthdate(value) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const date = new Date(`${value}T00:00:00Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
 window.addEventListener('message', event => {
     const data = event.data || {};
     if (data.serverName) serverNameEl.textContent = String(data.serverName).toUpperCase();
-
     if (data.action === 'open') {
         app.classList.remove('hidden');
         app.setAttribute('aria-hidden', 'false');
     }
-
     if (data.action === 'close') {
         app.classList.add('hidden');
         app.setAttribute('aria-hidden', 'true');
         confirmEl.classList.add('hidden');
         setSubmitting(false);
     }
-
     if (data.action === 'setCharacters') {
         characters = Array.isArray(data.characters) ? data.characters : [];
         maxCharacters = Math.max(1, Number(data.maxCharacters || 6));
@@ -189,26 +223,35 @@ window.addEventListener('message', event => {
 
 confirmCancelEl.onclick = closeDelete;
 confirmDeleteEl.onclick = deleteCharacter;
-confirmEl.addEventListener('click', event => {
-    if (event.target === confirmEl) closeDelete();
-});
+confirmEl.addEventListener('click', event => { if (event.target === confirmEl) closeDelete(); });
+document.getElementById('cancel').onclick = () => { if (!submitting) showCharacters(); };
 
-document.getElementById('cancel').onclick = () => {
-    if (!submitting) showCharacters();
-};
-
-document.getElementById('createBtn').onclick = async () => {
+createButtonEl.onclick = async () => {
     if (submitting) return;
+    setError('');
     const firstname = document.getElementById('firstname').value.trim();
     const lastname = document.getElementById('lastname').value.trim();
     const nationality = document.getElementById('nationality').value.trim();
     const birthdate = document.getElementById('birthdate').value;
     const gender = Number(document.getElementById('gender').value);
 
-    if (firstname.length < 2 || lastname.length < 2 || nationality.length < 2 || !birthdate) return;
+    const problems = [];
+    if (firstname.length < 2) problems.push('First name must be at least 2 characters.');
+    if (lastname.length < 2) problems.push('Last name must be at least 2 characters.');
+    if (nationality.length < 2) problems.push('Nationality must be at least 2 characters.');
+    if (!validBirthdate(birthdate)) problems.push('Select a valid birth date.');
+    if (gender !== 0 && gender !== 1) problems.push('Select a valid gender.');
+    if (problems.length) {
+        setError(problems[0]);
+        return;
+    }
 
     setSubmitting(true);
-    await post('createCharacter', { firstname, lastname, nationality, birthdate, gender });
+    const result = await post('createCharacter', { firstname, lastname, nationality, birthdate, gender }, 20000);
+    if (!result.ok) {
+        setSubmitting(false);
+        alertResult(result, 'Character creation failed. Please try again.');
+    }
 };
 
 document.addEventListener('keydown', event => {
@@ -221,9 +264,4 @@ document.addEventListener('keydown', event => {
     }
 });
 
-// The Lua resource controls whether deletion is enabled. This constant keeps
-// the NUI independent from server-side configuration while preserving the
-// existing default behavior.
-const ConfigDeleteEnabled = true;
-
-post('ready');
+post('ready', {}, 5000);
