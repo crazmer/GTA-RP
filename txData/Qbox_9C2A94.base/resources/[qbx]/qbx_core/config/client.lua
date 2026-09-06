@@ -2,12 +2,9 @@ return {
     statusIntervalSeconds = 5, -- how often to check hunger/thirst status to remove health if 0.
     loadingModelsTimeout = 30000, -- Waiting time for ox_lib to load the models before throws an error, for low specs pc
 
-    pauseMapText = 'Powered by Qbox', -- Text shown above the map when ESC is pressed. If left empty 'FiveM' will appear
-
     characters = {
-        -- BotRP provides the character selection/creation UI. Qbox remains the
-        -- authoritative character persistence and loading system.
-        useExternalCharacters = true,
+        -- Use Qbox's built-in character manager for character selection and creation.
+        useExternalCharacters = false,
         enableDeleteButton = true,
         startingApartment = true,
 
@@ -78,33 +75,37 @@ return {
 
     --- Only used by QB bridge
     hasKeys = function(plate, vehicle)
-        return GetResourceState('qbx_vehiclekeys') ~= 'started' or exports.qbx_vehiclekeys:HasKeys(vehicle)
+        return exports.qbx_vehiclekeys:HasKeys(plate)
+    end,
+
+    --- Only used by QB bridge
+    giveKeys = function(plate, vehicle)
+        return exports.qbx_vehiclekeys:GiveKeys(plate)
     end,
 
     teleport = {
-        fadeDuration = 650,
-        groundSearchMaxZ = 850.0,
-        groundSearchStartZ = 950.0,
-        groundSearchStep = -25.0,
+        fadeDuration = 250,
+        groundSearchStartZ = 1000.0,
+        groundSearchMaxZ = 100.0,
+        groundSearchStep = 50.0,
         loadSceneRadius = 50.0,
-        timeout = 1000,
-    },
-
-    getVehiclesInRadius = {
-        defaultRadius = 5,
+        timeout = 5000,
     },
 
     meCommand = {
-        distance = 25,
+        distance = 50.0,
         displayTime = 5000,
     },
 
-    setVehicleProperties = {
-        timeout = 1000,
-        waitInterval = 50,
+    getVehiclesInRadius = {
+        defaultRadius = 50.0,
     },
 
-    initVehicle = {
-        seats = {-1, 0},
+    setVehicleProperties = {
+        waitInterval = 100,
+        timeout = 5000,
     },
+
+    pvp = true,
+    motd = '',
 }
